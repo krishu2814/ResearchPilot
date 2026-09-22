@@ -71,8 +71,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | **Phase 2** | Lesson 2.1 | LangGraph Fundamentals: State, Nodes, and Edges | ✅ Completed |
 | | Lesson 2.2 | The Planner Node: Breaking questions into sub-questions | ✅ Completed |
 | | Lesson 2.3 | Building & Compiling `START -> planner -> END` Graph | ✅ Completed |
-| **Phase 3** | Lesson 3.1 | Web Search Tool: Integrating live search | ⏳ Next Up |
-| | Lesson 3.2 | Web Search Node in LangGraph | 📋 Planned |
+| **Phase 3** | Lesson 3.1 | Web Search Tool: Integrating live search | ✅ Completed |
+| | Lesson 3.2 | Web Search Node in LangGraph | ⏳ Next Up |
 | **Phase 4** | Lesson 4.1 | Document Parsing & Text Chunking | 📋 Planned |
 | | Lesson 4.2 | Embeddings & pgvector Storage | 📋 Planned |
 | | Lesson 4.3 | Document Retrieval Node | 📋 Planned |
@@ -197,3 +197,26 @@ workflow.add_edge(START, "planner")
 workflow.add_edge("planner", END)
 research_graph = workflow.compile()
 ```
+
+---
+
+## 🔍 Web Search Service (Phase 3 — Lesson 3.1)
+
+In Lesson 3.1, we built a standalone search tool in `app/services/search.py` using `ddgs` (DuckDuckGo Search). This gives our agent real-time access to the live web without requiring an API key.
+
+### Usage Example:
+```python
+from app.services.search import search_web
+
+results = search_web("FastAPI vs Flask", max_results=2)
+for r in results:
+    print(r["title"])
+    print(r["url"])
+    print(r["snippet"])
+```
+
+### Test Directly from Terminal:
+```bash
+python -m app.services.search
+```
+

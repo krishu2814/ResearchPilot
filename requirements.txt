@@ -6,3 +6,6 @@ pydantic>=2.9.0
 # Agent & Workflow Engine (Phase 2)
 langgraph>=0.2.0
 langchain-core>=0.3.0
+
+# Web Search (Phase 3)
+ddgs>=9.0.0
