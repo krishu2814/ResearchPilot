@@ -38,8 +38,22 @@ class EvidenceItem(BaseModel):
     sub_question: str = Field(default="", description="Sub-question this claim supports")
 
 
+class VerifiedEvidenceItem(BaseModel):
+    """
+    An audited claim with verification verdict and confidence score (Phase 7).
+    """
+    claim: str = Field(..., description="The audited factual claim")
+    source_type: str = Field(..., description="Origin type: 'web' or 'document'")
+    source_title: str = Field(..., description="Title of the source webpage or document")
+    source_url_or_id: str = Field(..., description="URL link or document ID")
+    sub_question: str = Field(default="", description="Sub-question this claim supports")
+    verdict: str = Field(..., description="Audit verdict: 'verified', 'partial', or 'unverified'")
+    confidence: float = Field(..., description="Confidence score from 0.0 to 1.0")
+    rationale: str = Field(..., description="Fact-checker explanation and grounding rationale")
+
+
 # -----------------------------------------------------------------------------
-# Research Workflow Models (Phase 6 Extraction Pipeline)
+# Research Workflow Models (Phase 7 Fact Checking Pipeline)
 # -----------------------------------------------------------------------------
 class ResearchRequest(BaseModel):
     """
@@ -55,7 +69,7 @@ class ResearchRequest(BaseModel):
 class ResearchResponse(BaseModel):
     """
     Data returned to the user after running the research workflow.
-    Includes sub-questions, raw web sources, document passages, and extracted evidence!
+    Includes sub-questions, raw sources, document passages, extracted claims, and verified facts!
     """
     status: str = Field(..., description="Current status of the research workflow", examples=["researched"])
     query: str = Field(..., description="Echoes back the research query received")
@@ -63,6 +77,7 @@ class ResearchResponse(BaseModel):
     search_results: List[SearchResultItem] = Field(default_factory=list, description="Live web sources (from web_researcher)")
     document_results: List[DocumentSearchResultItem] = Field(default_factory=list, description="Passages from uploaded documents (from doc_retriever)")
     evidence: List[EvidenceItem] = Field(default_factory=list, description="Atomic claims and citations (from extractor)")
+    verified_evidence: List[VerifiedEvidenceItem] = Field(default_factory=list, description="Audited claims with verdicts (from fact_checker)")
     message: str = Field(..., description="Human-readable explanation of current status")
 
 

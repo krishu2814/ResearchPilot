@@ -78,8 +78,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | | Lesson 4.3 | Document Retrieval Node & Ingestion API | ✅ Completed |
 | **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | ✅ Completed |
 | **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | ✅ Completed |
-| **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | ⏳ Next Up |
-| **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | 📋 Planned |
+| **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | ✅ Completed |
+| **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | ⏳ Next Up |
 | **Phase 9** | Lesson 9.1 | PostgreSQL Session Memory & Persistence | 📋 Planned |
 | **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | 📋 Planned |
 | **Phase 11**| Lesson 11.1| Redis Caching for Search & State | 📋 Planned |
@@ -144,7 +144,7 @@ curl http://127.0.0.1:8000/health
 ### 2. Multi-Agent Research (`POST /research`)
 * **Method**: `POST`
 * **Path**: `/research`
-* **Description**: Runs the multi-agent LangGraph workflow (`START -> planner -> [web_researcher + doc_retriever] -> extractor -> END`). The Planner decomposes the topic into sub-questions, the Web Researcher and Document Retriever execute concurrently to gather evidence from the live web and uploaded documents, and the Extractor distills sources into atomic factual claims with citations.
+* **Description**: Runs the multi-agent LangGraph workflow (`START -> planner -> [web_researcher + doc_retriever] -> extractor -> fact_checker -> END`). The Planner decomposes the topic into sub-questions, the Web Researcher and Document Retriever execute concurrently to gather evidence from the live web and uploaded documents, the Extractor distills sources into atomic factual claims with citations, and the Fact Checker audits each claim for truthfulness, assigning verdicts and confidence scores.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/research \
@@ -164,31 +164,38 @@ curl -X POST http://127.0.0.1:8000/research \
   ],
   "search_results": [ ... ],
   "document_results": [ ... ],
-  "evidence": [
+  "evidence": [ ... ],
+  "verified_evidence": [
     {
       "claim": "PostgreSQL is an advanced ACID-compliant relational database that excels at complex queries.",
       "source_type": "document",
       "source_title": "PostgreSQL vs MongoDB Internal Guide",
       "source_url_or_id": "doc_b9b90229",
-      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?"
+      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
+      "verdict": "verified",
+      "confidence": 0.99,
+      "rationale": "Claim is directly supported by cited document source 'PostgreSQL vs MongoDB Internal Guide'."
     },
     {
       "claim": "PostgreSQL is an object-relational database while MongoDB is a document-oriented database.",
       "source_type": "web",
       "source_title": "Difference between PostgreSQL and MongoDB - GeeksforGeeks",
       "source_url_or_id": "https://www.geeksforgeeks.org/postgresql/difference-between-postgresql-and-mongodb/",
-      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?"
+      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
+      "verdict": "verified",
+      "confidence": 0.98,
+      "rationale": "Claim is directly supported by cited web source 'Difference between PostgreSQL and MongoDB - GeeksforGeeks'."
     }
   ],
-  "message": "Planner generated 3 sub-questions. Gathered 4 web sources and 3 document passages in parallel, extracting 7 structured evidence claims."
+  "message": "Planner generated 3 sub-questions. Gathered 4 web sources and 3 document passages in parallel, extracting 7 claims and fact-verifying 7 supported statements."
 }
 ```
 
 ---
 
-## 🧠 LangGraph Evidence Extraction Workflow Details (Phase 6)
+## 🧠 LangGraph Fact-Checking Workflow Details (Phase 7)
 
-Our agent workflow implements **Fan-out / Fan-in parallel execution with Evidence Extraction** using `StateGraph`:
+Our agent workflow implements **Parallel Graph Execution + Evidence Extraction + Automated Fact-Checking**:
 
 ```text
                   [START]
@@ -204,6 +211,9 @@ Our agent workflow implements **Fan-out / Fan-in parallel execution with Evidenc
                 [extractor]                <-- Barrier Join & Evidence Extraction!
                      │
                      ▼
+               [fact_checker]              <-- Audits claims, assigns verdicts & confidence!
+                     │
+                     ▼
                    [END]
 ```
 
@@ -215,6 +225,7 @@ class ResearchState(TypedDict):
     search_results: List[dict]       # Web evidence (DuckDuckGo)
     document_results: List[dict]     # Document RAG evidence (Vector store)
     evidence: List[dict]             # Atomic claims with citations (Phase 6)
+    verified_evidence: List[dict]    # Audited claims with verdicts & confidence (Phase 7)
 ```
 
 ### Graph Definition (`app/graph/research_graph.py`):
@@ -224,6 +235,7 @@ workflow.add_node("planner", planner_node)
 workflow.add_node("web_researcher", researcher_node)
 workflow.add_node("doc_retriever", document_retriever_node)
 workflow.add_node("extractor", extractor_node)
+workflow.add_node("fact_checker", fact_checker_node)
 
 # Fan-out: Planner splits into two concurrent branches
 workflow.add_edge(START, "planner")
@@ -233,7 +245,10 @@ workflow.add_edge("planner", "doc_retriever")
 # Fan-in: LangGraph waits for both branches before continuing to extractor
 workflow.add_edge("web_researcher", "extractor")
 workflow.add_edge("doc_retriever", "extractor")
-workflow.add_edge("extractor", END)
+
+# Fact-checker audits claims before completing research
+workflow.add_edge("extractor", "fact_checker")
+workflow.add_edge("fact_checker", END)
 
 research_graph = workflow.compile()
 ```

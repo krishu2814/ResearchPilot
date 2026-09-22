@@ -16,8 +16,8 @@ from app.services.rag import index_document_chunks, search_documents, get_index_
 # 1. Create FastAPI instance
 app = FastAPI(
     title="ResearchPilot API",
-    description="Agentic Research & RAG Platform - Phase 6 Evidence Extraction Pipeline",
-    version="0.6.0",
+    description="Agentic Research & RAG Platform - Phase 7 Fact Checking Pipeline",
+    version="0.7.0",
 )
 
 
@@ -32,12 +32,12 @@ def health_check():
     return {
         "status": "ok",
         "service": "ResearchPilot",
-        "version": "0.6.0"
+        "version": "0.7.0"
     }
 
 
 # -----------------------------------------------------------------------------
-# Research Endpoints (LangGraph Parallel Extraction Workflow)
+# Research Endpoints (LangGraph Parallel Fact-Checking Workflow)
 # -----------------------------------------------------------------------------
 @app.post("/research", response_model=ResearchResponse, tags=["Research"])
 def start_research(request: ResearchRequest):
@@ -46,13 +46,15 @@ def start_research(request: ResearchRequest):
     1. Planner generates sub-questions
     2. Web Researcher and Document Retriever execute in parallel
     3. Extractor distills sources into atomic claims with source citations
+    4. Fact Checker audits claims against source material and assigns verdicts
     """
     initial_state = {
         "question": request.query,
         "sub_questions": [],
         "search_results": [],
         "document_results": [],
-        "evidence": []
+        "evidence": [],
+        "verified_evidence": []
     }
 
     final_state = research_graph.invoke(initial_state)
@@ -61,6 +63,8 @@ def start_research(request: ResearchRequest):
     web_count = len(final_state.get("search_results", []))
     doc_count = len(final_state.get("document_results", []))
     evidence_count = len(final_state.get("evidence", []))
+    verified_list = final_state.get("verified_evidence", [])
+    verified_count = sum(1 for v in verified_list if v.get("verdict") == "verified")
 
     return ResearchResponse(
         status="researched",
@@ -69,10 +73,11 @@ def start_research(request: ResearchRequest):
         search_results=final_state["search_results"],
         document_results=final_state["document_results"],
         evidence=final_state["evidence"],
+        verified_evidence=final_state["verified_evidence"],
         message=(
             f"Planner generated {num_questions} sub-questions. "
             f"Gathered {web_count} web sources and {doc_count} document passages in parallel, "
-            f"extracting {evidence_count} structured evidence claims."
+            f"extracting {evidence_count} claims and fact-verifying {verified_count} supported statements."
         )
     )
 

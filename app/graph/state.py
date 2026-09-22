@@ -6,7 +6,7 @@ from typing import TypedDict, List
 # -----------------------------------------------------------------------------
 # In LangGraph, "State" is a shared dictionary that travels from node to node.
 # Each node reads what it needs from the state, does some work (like planning,
-# searching, or extracting), and returns a dictionary with new or updated values.
+# searching, extracting, or fact-checking), and returns new/updated values.
 # -----------------------------------------------------------------------------
 class ResearchState(TypedDict):
     """
@@ -26,3 +26,6 @@ class ResearchState(TypedDict):
 
     # 5. Atomic claims and facts extracted from all sources (Phase 6)
     evidence: List[dict]
+
+    # 6. Claims audited with verification verdicts and confidence scores (Phase 7)
+    verified_evidence: List[dict]
