@@ -16,8 +16,8 @@ from app.services.rag import index_document_chunks, search_documents, get_index_
 # 1. Create FastAPI instance
 app = FastAPI(
     title="ResearchPilot API",
-    description="Agentic Research & RAG Platform - Phase 5 Parallel Graph Execution",
-    version="0.5.0",
+    description="Agentic Research & RAG Platform - Phase 6 Evidence Extraction Pipeline",
+    version="0.6.0",
 )
 
 
@@ -32,26 +32,27 @@ def health_check():
     return {
         "status": "ok",
         "service": "ResearchPilot",
-        "version": "0.5.0"
+        "version": "0.6.0"
     }
 
 
 # -----------------------------------------------------------------------------
-# Research Endpoints (LangGraph Parallel Workflow)
+# Research Endpoints (LangGraph Parallel Extraction Workflow)
 # -----------------------------------------------------------------------------
 @app.post("/research", response_model=ResearchResponse, tags=["Research"])
 def start_research(request: ResearchRequest):
     """
-    Receives a research query, runs the parallel multi-agent graph:
+    Receives a research query, runs the multi-agent graph:
     1. Planner generates sub-questions
-    2. Web Researcher and Document Retriever execute concurrently in parallel
-    3. Results are merged and returned
+    2. Web Researcher and Document Retriever execute in parallel
+    3. Extractor distills sources into atomic claims with source citations
     """
     initial_state = {
         "question": request.query,
         "sub_questions": [],
         "search_results": [],
-        "document_results": []
+        "document_results": [],
+        "evidence": []
     }
 
     final_state = research_graph.invoke(initial_state)
@@ -59,6 +60,7 @@ def start_research(request: ResearchRequest):
     num_questions = len(final_state.get("sub_questions", []))
     web_count = len(final_state.get("search_results", []))
     doc_count = len(final_state.get("document_results", []))
+    evidence_count = len(final_state.get("evidence", []))
 
     return ResearchResponse(
         status="researched",
@@ -66,9 +68,11 @@ def start_research(request: ResearchRequest):
         sub_questions=final_state["sub_questions"],
         search_results=final_state["search_results"],
         document_results=final_state["document_results"],
+        evidence=final_state["evidence"],
         message=(
             f"Planner generated {num_questions} sub-questions. "
-            f"Concurrently gathered {web_count} web sources and {doc_count} document passages in parallel."
+            f"Gathered {web_count} web sources and {doc_count} document passages in parallel, "
+            f"extracting {evidence_count} structured evidence claims."
         )
     )
 

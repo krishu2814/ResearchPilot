@@ -77,8 +77,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | | Lesson 4.2 | Embeddings & Vector Storage (Cosine Similarity) | ✅ Completed |
 | | Lesson 4.3 | Document Retrieval Node & Ingestion API | ✅ Completed |
 | **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | ✅ Completed |
-| **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | ⏳ Next Up |
-| **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | 📋 Planned |
+| **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | ✅ Completed |
+| **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | ⏳ Next Up |
 | **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | 📋 Planned |
 | **Phase 9** | Lesson 9.1 | PostgreSQL Session Memory & Persistence | 📋 Planned |
 | **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | 📋 Planned |
@@ -144,7 +144,7 @@ curl http://127.0.0.1:8000/health
 ### 2. Multi-Agent Research (`POST /research`)
 * **Method**: `POST`
 * **Path**: `/research`
-* **Description**: Runs the parallel multi-agent LangGraph workflow (`START -> planner -> [web_researcher + doc_retriever] -> combine -> END`). The Planner decomposes the topic into sub-questions, and the Web Researcher and Document Retriever execute concurrently to gather evidence from the live web and uploaded documents.
+* **Description**: Runs the multi-agent LangGraph workflow (`START -> planner -> [web_researcher + doc_retriever] -> extractor -> END`). The Planner decomposes the topic into sub-questions, the Web Researcher and Document Retriever execute concurrently to gather evidence from the live web and uploaded documents, and the Extractor distills sources into atomic factual claims with citations.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/research \
@@ -162,33 +162,33 @@ curl -X POST http://127.0.0.1:8000/research \
     "How do performance, scaling, and consistency compare in Compare PostgreSQL and MongoDB?",
     "What are the primary trade-offs and recommended use cases for Compare PostgreSQL and MongoDB?"
   ],
-  "search_results": [
+  "search_results": [ ... ],
+  "document_results": [ ... ],
+  "evidence": [
     {
-      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
-      "title": "Difference between PostgreSQL and MongoDB - GeeksforGeeks",
-      "url": "https://www.geeksforgeeks.org/postgresql/difference-between-postgresql-and-mongodb/",
-      "snippet": "PostgreSQL is an object-relational database while MongoDB is a document-oriented database..."
+      "claim": "PostgreSQL is an advanced ACID-compliant relational database that excels at complex queries.",
+      "source_type": "document",
+      "source_title": "PostgreSQL vs MongoDB Internal Guide",
+      "source_url_or_id": "doc_b9b90229",
+      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?"
+    },
+    {
+      "claim": "PostgreSQL is an object-relational database while MongoDB is a document-oriented database.",
+      "source_type": "web",
+      "source_title": "Difference between PostgreSQL and MongoDB - GeeksforGeeks",
+      "source_url_or_id": "https://www.geeksforgeeks.org/postgresql/difference-between-postgresql-and-mongodb/",
+      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?"
     }
   ],
-  "document_results": [
-    {
-      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
-      "doc_id": "doc_b9b90229",
-      "title": "PostgreSQL vs MongoDB Internal Guide",
-      "chunk_id": "doc_b9b90229_c1",
-      "chunk_text": "PostgreSQL is an advanced ACID-compliant relational database that excels at complex queries...",
-      "score": 0.342
-    }
-  ],
-  "message": "Planner generated 3 sub-questions. Concurrently gathered 5 web sources and 3 document passages in parallel."
+  "message": "Planner generated 3 sub-questions. Gathered 4 web sources and 3 document passages in parallel, extracting 7 structured evidence claims."
 }
 ```
 
 ---
 
-## 🧠 LangGraph Parallel Multi-Agent Workflow Details (Phase 5)
+## 🧠 LangGraph Evidence Extraction Workflow Details (Phase 6)
 
-Our agent workflow implements **Fan-out / Fan-in parallel execution** using `StateGraph`:
+Our agent workflow implements **Fan-out / Fan-in parallel execution with Evidence Extraction** using `StateGraph`:
 
 ```text
                   [START]
@@ -201,7 +201,7 @@ Our agent workflow implements **Fan-out / Fan-in parallel execution** using `Sta
      [web_researcher]   [doc_retriever]    <-- Run in Parallel!
             └────────┬────────┘
                      ▼
-              [combine_results]            <-- Synchronization Barrier
+                [extractor]                <-- Barrier Join & Evidence Extraction!
                      │
                      ▼
                    [END]
@@ -214,6 +214,7 @@ class ResearchState(TypedDict):
     sub_questions: List[str]
     search_results: List[dict]       # Web evidence (DuckDuckGo)
     document_results: List[dict]     # Document RAG evidence (Vector store)
+    evidence: List[dict]             # Atomic claims with citations (Phase 6)
 ```
 
 ### Graph Definition (`app/graph/research_graph.py`):
@@ -222,17 +223,17 @@ workflow = StateGraph(ResearchState)
 workflow.add_node("planner", planner_node)
 workflow.add_node("web_researcher", researcher_node)
 workflow.add_node("doc_retriever", document_retriever_node)
-workflow.add_node("combine_results", combine_results_node)
+workflow.add_node("extractor", extractor_node)
 
 # Fan-out: Planner splits into two concurrent branches
 workflow.add_edge(START, "planner")
 workflow.add_edge("planner", "web_researcher")
 workflow.add_edge("planner", "doc_retriever")
 
-# Fan-in: LangGraph waits for both branches before continuing
-workflow.add_edge("web_researcher", "combine_results")
-workflow.add_edge("doc_retriever", "combine_results")
-workflow.add_edge("combine_results", END)
+# Fan-in: LangGraph waits for both branches before continuing to extractor
+workflow.add_edge("web_researcher", "extractor")
+workflow.add_edge("doc_retriever", "extractor")
+workflow.add_edge("extractor", END)
 
 research_graph = workflow.compile()
 ```

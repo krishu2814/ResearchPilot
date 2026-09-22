@@ -5,8 +5,8 @@ from typing import TypedDict, List
 # ResearchState: The Central Memory of our Agent Graph
 # -----------------------------------------------------------------------------
 # In LangGraph, "State" is a shared dictionary that travels from node to node.
-# Each node reads what it needs from the state, does some work (like planning
-# or searching), and returns a dictionary with new or updated values.
+# Each node reads what it needs from the state, does some work (like planning,
+# searching, or extracting), and returns a dictionary with new or updated values.
 # -----------------------------------------------------------------------------
 class ResearchState(TypedDict):
     """
@@ -23,3 +23,6 @@ class ResearchState(TypedDict):
 
     # 4. Relevant passages retrieved from uploaded documents (Phase 4 & 5)
     document_results: List[dict]
+
+    # 5. Atomic claims and facts extracted from all sources (Phase 6)
+    evidence: List[dict]

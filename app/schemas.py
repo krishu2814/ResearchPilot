@@ -27,8 +27,19 @@ class DocumentSearchResultItem(BaseModel):
     score: float = Field(..., description="Cosine similarity score (0.0 to 1.0)")
 
 
+class EvidenceItem(BaseModel):
+    """
+    An atomic factual claim extracted from source materials (Phase 6).
+    """
+    claim: str = Field(..., description="The concrete factual claim extracted from source material")
+    source_type: str = Field(..., description="Origin type: 'web' or 'document'")
+    source_title: str = Field(..., description="Title of the source webpage or document")
+    source_url_or_id: str = Field(..., description="URL link or document ID")
+    sub_question: str = Field(default="", description="Sub-question this claim supports")
+
+
 # -----------------------------------------------------------------------------
-# Research Workflow Models (Phase 5 Parallel Execution)
+# Research Workflow Models (Phase 6 Extraction Pipeline)
 # -----------------------------------------------------------------------------
 class ResearchRequest(BaseModel):
     """
@@ -43,14 +54,15 @@ class ResearchRequest(BaseModel):
 
 class ResearchResponse(BaseModel):
     """
-    Data returned to the user after running the parallel research workflow.
-    In Phase 5, this includes both live web search results AND uploaded document passages!
+    Data returned to the user after running the research workflow.
+    Includes sub-questions, raw web sources, document passages, and extracted evidence!
     """
     status: str = Field(..., description="Current status of the research workflow", examples=["researched"])
     query: str = Field(..., description="Echoes back the research query received")
     sub_questions: List[str] = Field(default_factory=list, description="Sub-questions produced by Planner")
     search_results: List[SearchResultItem] = Field(default_factory=list, description="Live web sources (from web_researcher)")
     document_results: List[DocumentSearchResultItem] = Field(default_factory=list, description="Passages from uploaded documents (from doc_retriever)")
+    evidence: List[EvidenceItem] = Field(default_factory=list, description="Atomic claims and citations (from extractor)")
     message: str = Field(..., description="Human-readable explanation of current status")
 
 
