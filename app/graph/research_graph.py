@@ -5,10 +5,11 @@ from app.agents.researcher import researcher_node
 from app.agents.retriever import document_retriever_node
 from app.agents.extractor import extractor_node
 from app.agents.fact_checker import fact_checker_node
+from app.agents.synthesizer import synthesizer_node
 
 
 # -----------------------------------------------------------------------------
-# Parallel Research Graph with Fact Checking (Phase 7)
+# Parallel Research Graph with Report Synthesis (Phase 8)
 # -----------------------------------------------------------------------------
 # Graph Topology:
 #                  [START]
@@ -24,14 +25,17 @@ from app.agents.fact_checker import fact_checker_node
 #                [extractor]                <-- Barrier Join & Claim Extraction
 #                     │
 #                     ▼
-#               [fact_checker]              <-- Phase 7: Audits claims & assigns verdicts
+#               [fact_checker]              <-- Audits claims & assigns verdicts
+#                     │
+#                     ▼
+#               [synthesizer]               <-- Phase 8: Synthesizes final Markdown report
 #                     │
 #                     ▼
 #                   [END]
 # -----------------------------------------------------------------------------
 def build_research_graph():
     """
-    Constructs and compiles the Phase 7 research workflow graph.
+    Constructs and compiles the Phase 8 research workflow graph.
     """
     # 1. Initialize StateGraph with our shared state schema
     workflow = StateGraph(ResearchState)
@@ -42,6 +46,7 @@ def build_research_graph():
     workflow.add_node("doc_retriever", document_retriever_node)
     workflow.add_node("extractor", extractor_node)
     workflow.add_node("fact_checker", fact_checker_node)
+    workflow.add_node("synthesizer", synthesizer_node)
 
     # 3. Connect START to planner
     workflow.add_edge(START, "planner")
@@ -57,10 +62,13 @@ def build_research_graph():
     # 6. From extractor to fact_checker
     workflow.add_edge("extractor", "fact_checker")
 
-    # 7. From fact_checker to END
-    workflow.add_edge("fact_checker", END)
+    # 7. From fact_checker to synthesizer
+    workflow.add_edge("fact_checker", "synthesizer")
 
-    # 8. Compile into a runnable agent graph
+    # 8. From synthesizer to END
+    workflow.add_edge("synthesizer", END)
+
+    # 9. Compile into a runnable agent graph
     return workflow.compile()
 
 

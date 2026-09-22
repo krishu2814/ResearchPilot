@@ -78,6 +78,7 @@ class ResearchResponse(BaseModel):
     document_results: List[DocumentSearchResultItem] = Field(default_factory=list, description="Passages from uploaded documents (from doc_retriever)")
     evidence: List[EvidenceItem] = Field(default_factory=list, description="Atomic claims and citations (from extractor)")
     verified_evidence: List[VerifiedEvidenceItem] = Field(default_factory=list, description="Audited claims with verdicts (from fact_checker)")
+    report: str = Field(default="", description="Synthesized final Markdown research report with citations (from synthesizer)")
     message: str = Field(..., description="Human-readable explanation of current status")
 
 

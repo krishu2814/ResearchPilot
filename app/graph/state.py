@@ -29,3 +29,6 @@ class ResearchState(TypedDict):
 
     # 6. Claims audited with verification verdicts and confidence scores (Phase 7)
     verified_evidence: List[dict]
+
+    # 7. Final synthesized research report in Markdown with citations (Phase 8)
+    report: str
