@@ -10,6 +10,7 @@ We measure how close two vectors are using "Cosine Similarity".
 - Score 0.0: No relation / orthogonal
 """
 
+import hashlib
 import math
 import os
 import re
@@ -46,11 +47,11 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
 # -----------------------------------------------------------------------------
 # 2. Text Embedding Generator
 # -----------------------------------------------------------------------------
-# We use a fixed-dimension vector (e.g. 64 dimensions) with term hashing.
-# This provides deterministic, lightning-fast semantic word overlap embeddings
-# that run 100% offline on any machine with ZERO external libraries!
+# We use a 256-dimension vector with deterministic MD5 term hashing.
+# This ensures 100% reproducible semantic word overlap embeddings
+# with virtually zero collisions and NO external library dependencies!
 # -----------------------------------------------------------------------------
-VECTOR_DIMENSION = 64
+VECTOR_DIMENSION = 256
 
 
 def get_embedding(text: str) -> List[float]:
@@ -74,7 +75,8 @@ def get_embedding(text: str) -> List[float]:
 def _get_local_embedding(text: str, dimensions: int = VECTOR_DIMENSION) -> List[float]:
     """
     A lightweight, built-in vectorizer.
-    It breaks text into words, hashes them into fixed buckets, and normalizes the vector.
+    It breaks text into words, hashes them deterministically into fixed buckets,
+    and normalizes the vector to unit length.
     """
     # 1. Tokenize: extract lowercase alphanumeric words
     tokens = re.findall(r"\b\w+\b", text.lower())
@@ -84,10 +86,10 @@ def _get_local_embedding(text: str, dimensions: int = VECTOR_DIMENSION) -> List[
     # 2. Initialize an empty vector
     vector = [0.0] * dimensions
 
-    # 3. Hash words into vector buckets
+    # 3. Hash words deterministically into vector buckets
     for token in tokens:
-        # Simple polynomial string hash to distribute words across vector dimensions
-        bucket = abs(hash(token)) % dimensions
+        # MD5 digest guarantees identical bucket assignment across runs and platforms
+        bucket = int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16) % dimensions
         vector[bucket] += 1.0
 
     # 4. Normalize vector to unit length (so magnitude = 1.0)
