@@ -76,8 +76,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | **Phase 4** | Lesson 4.1 | Document Parsing & Text Chunking | ✅ Completed |
 | | Lesson 4.2 | Embeddings & Vector Storage (Cosine Similarity) | ✅ Completed |
 | | Lesson 4.3 | Document Retrieval Node & Ingestion API | ✅ Completed |
-| **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | ⏳ Next Up |
-| **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | 📋 Planned |
+| **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | ✅ Completed |
+| **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | ⏳ Next Up |
 | **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | 📋 Planned |
 | **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | 📋 Planned |
 | **Phase 9** | Lesson 9.1 | PostgreSQL Session Memory & Persistence | 📋 Planned |
@@ -144,53 +144,67 @@ curl http://127.0.0.1:8000/health
 ### 2. Multi-Agent Research (`POST /research`)
 * **Method**: `POST`
 * **Path**: `/research`
-* **Description**: Runs the multi-agent LangGraph workflow (`START -> planner -> researcher -> END`). The Planner breaks the topic into sub-questions, and the Researcher queries the live web to collect evidence.
+* **Description**: Runs the parallel multi-agent LangGraph workflow (`START -> planner -> [web_researcher + doc_retriever] -> combine -> END`). The Planner decomposes the topic into sub-questions, and the Web Researcher and Document Retriever execute concurrently to gather evidence from the live web and uploaded documents.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/research \
      -H "Content-Type: application/json" \
-     -d '{"query": "FastAPI vs Express"}'
+     -d '{"query": "Compare PostgreSQL and MongoDB"}'
 ```
 
 **Response:**
 ```json
 {
   "status": "researched",
-  "query": "FastAPI vs Express",
+  "query": "Compare PostgreSQL and MongoDB",
   "sub_questions": [
-    "What are the core architecture and design differences in FastAPI vs Express?",
-    "How do performance, scaling, and consistency compare in FastAPI vs Express?",
-    "What are the primary trade-offs and recommended use cases for FastAPI vs Express?"
+    "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
+    "How do performance, scaling, and consistency compare in Compare PostgreSQL and MongoDB?",
+    "What are the primary trade-offs and recommended use cases for Compare PostgreSQL and MongoDB?"
   ],
   "search_results": [
     {
-      "sub_question": "What are the core architecture and design differences in FastAPI vs Express?",
-      "title": "FastAPI vs Express: Which Backend Framework Actually Wins?",
-      "url": "https://www.kunalganglani.com/blog/fastapi-vs-express",
-      "snippet": "Detailed comparison of asynchronous event loops, Python typing vs Node.js ecosystem..."
+      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
+      "title": "Difference between PostgreSQL and MongoDB - GeeksforGeeks",
+      "url": "https://www.geeksforgeeks.org/postgresql/difference-between-postgresql-and-mongodb/",
+      "snippet": "PostgreSQL is an object-relational database while MongoDB is a document-oriented database..."
     }
   ],
-  "message": "Planner generated 3 sub-questions, and Researcher gathered 6 web sources."
+  "document_results": [
+    {
+      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
+      "doc_id": "doc_b9b90229",
+      "title": "PostgreSQL vs MongoDB Internal Guide",
+      "chunk_id": "doc_b9b90229_c1",
+      "chunk_text": "PostgreSQL is an advanced ACID-compliant relational database that excels at complex queries...",
+      "score": 0.342
+    }
+  ],
+  "message": "Planner generated 3 sub-questions. Concurrently gathered 5 web sources and 3 document passages in parallel."
 }
 ```
 
 ---
 
-## 🧠 LangGraph Multi-Agent Workflow Details (Phase 3)
+## 🧠 LangGraph Parallel Multi-Agent Workflow Details (Phase 5)
 
-Our agent workflow connects multiple specialized agents using `StateGraph`:
+Our agent workflow implements **Fan-out / Fan-in parallel execution** using `StateGraph`:
 
 ```text
-  [START]
-     │
-     ▼
- [planner]     <-- app/agents/planner.py (breaks question into sub-questions)
-     │
-     ▼
-[researcher]   <-- app/agents/researcher.py (searches the web for each sub-question)
-     │
-     ▼
-   [END]
+                  [START]
+                     │
+                     ▼
+                 [planner]
+                     │
+            ┌────────┴────────┐
+            ▼                 ▼
+     [web_researcher]   [doc_retriever]    <-- Run in Parallel!
+            └────────┬────────┘
+                     ▼
+              [combine_results]            <-- Synchronization Barrier
+                     │
+                     ▼
+                   [END]
 ```
 
 ### State Definition (`app/graph/state.py`):
@@ -198,18 +212,27 @@ Our agent workflow connects multiple specialized agents using `StateGraph`:
 class ResearchState(TypedDict):
     question: str
     sub_questions: List[str]
-    search_results: List[dict]
+    search_results: List[dict]       # Web evidence (DuckDuckGo)
+    document_results: List[dict]     # Document RAG evidence (Vector store)
 ```
 
 ### Graph Definition (`app/graph/research_graph.py`):
 ```python
 workflow = StateGraph(ResearchState)
 workflow.add_node("planner", planner_node)
-workflow.add_node("researcher", researcher_node)
+workflow.add_node("web_researcher", researcher_node)
+workflow.add_node("doc_retriever", document_retriever_node)
+workflow.add_node("combine_results", combine_results_node)
 
+# Fan-out: Planner splits into two concurrent branches
 workflow.add_edge(START, "planner")
-workflow.add_edge("planner", "researcher")
-workflow.add_edge("researcher", END)
+workflow.add_edge("planner", "web_researcher")
+workflow.add_edge("planner", "doc_retriever")
+
+# Fan-in: LangGraph waits for both branches before continuing
+workflow.add_edge("web_researcher", "combine_results")
+workflow.add_edge("doc_retriever", "combine_results")
+workflow.add_edge("combine_results", END)
 
 research_graph = workflow.compile()
 ```

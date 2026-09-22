@@ -16,8 +16,8 @@ from app.services.rag import index_document_chunks, search_documents, get_index_
 # 1. Create FastAPI instance
 app = FastAPI(
     title="ResearchPilot API",
-    description="Agentic Research & RAG Platform - Phase 4 Document RAG & Vector Storage",
-    version="0.4.0",
+    description="Agentic Research & RAG Platform - Phase 5 Parallel Graph Execution",
+    version="0.5.0",
 )
 
 
@@ -32,36 +32,44 @@ def health_check():
     return {
         "status": "ok",
         "service": "ResearchPilot",
-        "version": "0.4.0"
+        "version": "0.5.0"
     }
 
 
 # -----------------------------------------------------------------------------
-# Research Endpoints (LangGraph Workflow)
+# Research Endpoints (LangGraph Parallel Workflow)
 # -----------------------------------------------------------------------------
 @app.post("/research", response_model=ResearchResponse, tags=["Research"])
 def start_research(request: ResearchRequest):
     """
-    Receives a research query from the user, passes it to the LangGraph
-    multi-agent workflow (START -> Planner -> Researcher -> END), and returns results.
+    Receives a research query, runs the parallel multi-agent graph:
+    1. Planner generates sub-questions
+    2. Web Researcher and Document Retriever execute concurrently in parallel
+    3. Results are merged and returned
     """
     initial_state = {
         "question": request.query,
         "sub_questions": [],
-        "search_results": []
+        "search_results": [],
+        "document_results": []
     }
 
     final_state = research_graph.invoke(initial_state)
 
     num_questions = len(final_state.get("sub_questions", []))
-    num_results = len(final_state.get("search_results", []))
+    web_count = len(final_state.get("search_results", []))
+    doc_count = len(final_state.get("document_results", []))
 
     return ResearchResponse(
         status="researched",
         query=final_state["question"],
         sub_questions=final_state["sub_questions"],
         search_results=final_state["search_results"],
-        message=f"Planner generated {num_questions} sub-questions, and Researcher gathered {num_results} web sources."
+        document_results=final_state["document_results"],
+        message=(
+            f"Planner generated {num_questions} sub-questions. "
+            f"Concurrently gathered {web_count} web sources and {doc_count} document passages in parallel."
+        )
     )
 
 

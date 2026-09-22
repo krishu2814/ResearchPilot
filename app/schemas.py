@@ -3,7 +3,32 @@ from typing import List
 
 
 # -----------------------------------------------------------------------------
-# Research Models (Phases 1-3)
+# Web & Document Item Models
+# -----------------------------------------------------------------------------
+class SearchResultItem(BaseModel):
+    """
+    Represents an individual search source gathered by the Web Researcher agent.
+    """
+    sub_question: str = Field(..., description="The sub-question this source helps answer")
+    title: str = Field(..., description="Title of the webpage")
+    url: str = Field(..., description="Direct link to the source")
+    snippet: str = Field(..., description="Text summary/preview from the source")
+
+
+class DocumentSearchResultItem(BaseModel):
+    """
+    A single document chunk matched via vector search.
+    """
+    sub_question: str = Field(default="", description="The sub-question this passage relates to")
+    doc_id: str = Field(..., description="Document identifier")
+    title: str = Field(..., description="Title of the source document")
+    chunk_id: str = Field(..., description="Chunk identifier")
+    chunk_text: str = Field(..., description="Content of the matched passage")
+    score: float = Field(..., description="Cosine similarity score (0.0 to 1.0)")
+
+
+# -----------------------------------------------------------------------------
+# Research Workflow Models (Phase 5 Parallel Execution)
 # -----------------------------------------------------------------------------
 class ResearchRequest(BaseModel):
     """
@@ -16,29 +41,21 @@ class ResearchRequest(BaseModel):
     )
 
 
-class SearchResultItem(BaseModel):
-    """
-    Represents an individual search source gathered by the Researcher agent.
-    """
-    sub_question: str = Field(..., description="The sub-question this source helps answer")
-    title: str = Field(..., description="Title of the webpage")
-    url: str = Field(..., description="Direct link to the source")
-    snippet: str = Field(..., description="Text summary/preview from the source")
-
-
 class ResearchResponse(BaseModel):
     """
-    Data returned to the user after running the research workflow.
+    Data returned to the user after running the parallel research workflow.
+    In Phase 5, this includes both live web search results AND uploaded document passages!
     """
     status: str = Field(..., description="Current status of the research workflow", examples=["researched"])
     query: str = Field(..., description="Echoes back the research query received")
     sub_questions: List[str] = Field(default_factory=list, description="Sub-questions produced by Planner")
-    search_results: List[SearchResultItem] = Field(default_factory=list, description="Web sources from Researcher")
+    search_results: List[SearchResultItem] = Field(default_factory=list, description="Live web sources (from web_researcher)")
+    document_results: List[DocumentSearchResultItem] = Field(default_factory=list, description="Passages from uploaded documents (from doc_retriever)")
     message: str = Field(..., description="Human-readable explanation of current status")
 
 
 # -----------------------------------------------------------------------------
-# Document & RAG Models (Phase 4)
+# Document Management Models (Phase 4)
 # -----------------------------------------------------------------------------
 class DocumentUploadRequest(BaseModel):
     """
@@ -69,20 +86,9 @@ class DocumentListItem(BaseModel):
     char_count: int
 
 
-class DocumentSearchResultItem(BaseModel):
-    """
-    A single document chunk matched via vector search.
-    """
-    doc_id: str
-    title: str
-    chunk_id: str
-    chunk_text: str
-    score: float
-
-
 class DocumentSearchResponse(BaseModel):
     """
-    Response returned when querying the document vector store.
+    Response returned when querying the document vector store directly.
     """
     query: str
     total_matches: int
