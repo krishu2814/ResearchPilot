@@ -72,8 +72,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | | Lesson 2.2 | The Planner Node: Breaking questions into sub-questions | ✅ Completed |
 | | Lesson 2.3 | Building & Compiling `START -> planner -> END` Graph | ✅ Completed |
 | **Phase 3** | Lesson 3.1 | Web Search Tool: Integrating live search | ✅ Completed |
-| | Lesson 3.2 | Web Search Node in LangGraph | ⏳ Next Up |
-| **Phase 4** | Lesson 4.1 | Document Parsing & Text Chunking | 📋 Planned |
+| | Lesson 3.2 | Web Search Node in LangGraph | ✅ Completed |
+| **Phase 4** | Lesson 4.1 | Document Parsing & Text Chunking | ⏳ Next Up |
 | | Lesson 4.2 | Embeddings & pgvector Storage | 📋 Planned |
 | | Lesson 4.3 | Document Retrieval Node | 📋 Planned |
 | **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | 📋 Planned |
@@ -135,51 +135,62 @@ curl http://127.0.0.1:8000/health
 {
   "status": "ok",
   "service": "ResearchPilot",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }
 ```
 
 ---
 
-### 2. Research Planning (`POST /research`)
+### 2. Multi-Agent Research (`POST /research`)
 * **Method**: `POST`
 * **Path**: `/research`
-* **Description**: Runs the LangGraph research workflow (`START -> planner -> END`) to decompose a research topic into structured sub-questions.
+* **Description**: Runs the multi-agent LangGraph workflow (`START -> planner -> researcher -> END`). The Planner breaks the topic into sub-questions, and the Researcher queries the live web to collect evidence.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/research \
      -H "Content-Type: application/json" \
-     -d '{"query": "Compare PostgreSQL, MongoDB and DynamoDB for high scale"}'
+     -d '{"query": "FastAPI vs Express"}'
 ```
 
 **Response:**
 ```json
 {
-  "status": "planned",
-  "query": "Compare PostgreSQL, MongoDB and DynamoDB for high scale",
+  "status": "researched",
+  "query": "FastAPI vs Express",
   "sub_questions": [
-    "What are the core architecture and design differences in Compare PostgreSQL, MongoDB and DynamoDB for high scale?",
-    "How do performance, scaling, and consistency compare in Compare PostgreSQL, MongoDB and DynamoDB for high scale?",
-    "What are the primary trade-offs and recommended use cases for Compare PostgreSQL, MongoDB and DynamoDB for high scale?"
+    "What are the core architecture and design differences in FastAPI vs Express?",
+    "How do performance, scaling, and consistency compare in FastAPI vs Express?",
+    "What are the primary trade-offs and recommended use cases for FastAPI vs Express?"
   ],
-  "message": "Planner generated 3 research sub-questions."
+  "search_results": [
+    {
+      "sub_question": "What are the core architecture and design differences in FastAPI vs Express?",
+      "title": "FastAPI vs Express: Which Backend Framework Actually Wins?",
+      "url": "https://www.kunalganglani.com/blog/fastapi-vs-express",
+      "snippet": "Detailed comparison of asynchronous event loops, Python typing vs Node.js ecosystem..."
+    }
+  ],
+  "message": "Planner generated 3 sub-questions, and Researcher gathered 6 web sources."
 }
 ```
 
 ---
 
-## 🧠 LangGraph Workflow Details (Phase 2)
+## 🧠 LangGraph Multi-Agent Workflow Details (Phase 3)
 
-Our agent workflow is constructed using `StateGraph`:
+Our agent workflow connects multiple specialized agents using `StateGraph`:
 
 ```text
-[START]
-   │
-   ▼
-[planner]  <-- app/agents/planner.py (receives question, outputs sub_questions)
-   │
-   ▼
- [END]
+  [START]
+     │
+     ▼
+ [planner]     <-- app/agents/planner.py (breaks question into sub-questions)
+     │
+     ▼
+[researcher]   <-- app/agents/researcher.py (searches the web for each sub-question)
+     │
+     ▼
+   [END]
 ```
 
 ### State Definition (`app/graph/state.py`):
@@ -187,14 +198,19 @@ Our agent workflow is constructed using `StateGraph`:
 class ResearchState(TypedDict):
     question: str
     sub_questions: List[str]
+    search_results: List[dict]
 ```
 
 ### Graph Definition (`app/graph/research_graph.py`):
 ```python
 workflow = StateGraph(ResearchState)
 workflow.add_node("planner", planner_node)
+workflow.add_node("researcher", researcher_node)
+
 workflow.add_edge(START, "planner")
-workflow.add_edge("planner", END)
+workflow.add_edge("planner", "researcher")
+workflow.add_edge("researcher", END)
+
 research_graph = workflow.compile()
 ```
 
