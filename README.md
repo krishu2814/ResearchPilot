@@ -73,10 +73,10 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | | Lesson 2.3 | Building & Compiling `START -> planner -> END` Graph | ✅ Completed |
 | **Phase 3** | Lesson 3.1 | Web Search Tool: Integrating live search | ✅ Completed |
 | | Lesson 3.2 | Web Search Node in LangGraph | ✅ Completed |
-| **Phase 4** | Lesson 4.1 | Document Parsing & Text Chunking | ⏳ Next Up |
-| | Lesson 4.2 | Embeddings & pgvector Storage | 📋 Planned |
-| | Lesson 4.3 | Document Retrieval Node | 📋 Planned |
-| **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | 📋 Planned |
+| **Phase 4** | Lesson 4.1 | Document Parsing & Text Chunking | ✅ Completed |
+| | Lesson 4.2 | Embeddings & Vector Storage (Cosine Similarity) | ✅ Completed |
+| | Lesson 4.3 | Document Retrieval Node & Ingestion API | ✅ Completed |
+| **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | ⏳ Next Up |
 | **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | 📋 Planned |
 | **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | 📋 Planned |
 | **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | 📋 Planned |
@@ -234,5 +234,64 @@ for r in results:
 ### Test Directly from Terminal:
 ```bash
 python -m app.services.search
+```
+
+---
+
+## 📄 Document RAG & Vector Storage (Phase 4)
+
+In Phase 4, we added Retrieval-Augmented Generation (RAG) capabilities so the platform can search uploaded documents alongside web search.
+
+### Key Components:
+1. **Document Chunking** ([app/services/documents.py](app/services/documents.py)):
+   Splits large documents into overlapping character chunks (`chunk_size=300`, `overlap=50`) so context isn't lost at chunk boundaries.
+2. **Embeddings & Cosine Similarity** ([app/services/embeddings.py](app/services/embeddings.py)):
+   Converts text chunks into numerical vectors and calculates cosine similarity ($A \cdot B / (\|A\| \|B\|)$) to score relevance.
+3. **Vector Store** ([app/services/rag.py](app/services/rag.py)):
+   Stores chunks and their vector embeddings, and performs ranked semantic search.
+
+### API Endpoints:
+
+#### 1. Upload & Index a Document (`POST /documents`)
+```bash
+curl -X POST http://127.0.0.1:8000/documents \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "PostgreSQL Architecture Guide",
+       "content": "PostgreSQL is an advanced open-source relational database. It supports ACID compliance, advanced indexing, JSON querying, and horizontal scaling via read replicas."
+     }'
+```
+
+**Response:**
+```json
+{
+  "status": "indexed",
+  "doc_id": "doc_a1b2c3d4",
+  "title": "PostgreSQL Architecture Guide",
+  "num_chunks": 1,
+  "message": "Document 'PostgreSQL Architecture Guide' successfully parsed into 1 chunks and vector indexed."
+}
+```
+
+#### 2. Search Document Passages (`GET /documents/search`)
+```bash
+curl "http://127.0.0.1:8000/documents/search?q=PostgreSQL+indexing&top_k=2"
+```
+
+**Response:**
+```json
+{
+  "query": "PostgreSQL indexing",
+  "total_matches": 1,
+  "results": [
+    {
+      "doc_id": "doc_a1b2c3d4",
+      "title": "PostgreSQL Architecture Guide",
+      "chunk_id": "doc_a1b2c3d4_c1",
+      "chunk_text": "PostgreSQL is an advanced open-source relational database...",
+      "score": 0.4082
+    }
+  ]
+}
 ```
 
