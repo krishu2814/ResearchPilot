@@ -59,7 +59,8 @@ def stream_research_progress(
         "document_results": [],
         "evidence": [],
         "verified_evidence": [],
-        "report": ""
+        "report": "",
+        "errors": []
     }
 
     try:

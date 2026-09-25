@@ -1,7 +1,9 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List
-from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Query, HTTPException, Request
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from app.schemas import (
     ResearchRequest,
     ResearchResponse,
@@ -12,7 +14,9 @@ from app.schemas import (
     DocumentListItem,
     DocumentSearchResponse,
     DocumentSearchResultItem,
-    CacheStatsResponse
+    CacheStatsResponse,
+    CircuitBreakerStatsResponse,
+    ErrorResponse
 )
 from app.graph.research_graph import research_graph
 from app.services.documents import save_document, get_all_documents
@@ -26,6 +30,7 @@ from app.services.session_store import (
 )
 from app.services.streaming import stream_research_progress
 from app.services.cache import get_cache_stats, clear_cache
+from app.services.resilience import search_circuit_breaker
 
 # 1. Initialize SQLite session database
 init_db()
@@ -33,9 +38,70 @@ init_db()
 # 2. Create FastAPI instance
 app = FastAPI(
     title="ResearchPilot API",
-    description="Agentic Research & RAG Platform - Phase 11 Redis Caching Layer",
-    version="0.11.0",
+    description="Agentic Research & RAG Platform - Phase 12 Error Handling & Fault Tolerance",
+    version="0.12.0",
 )
+
+
+# -----------------------------------------------------------------------------
+# Global Exception Handlers (Phase 12)
+# -----------------------------------------------------------------------------
+# In a robust system, errors should NEVER cause unhandled crashes or unformatted
+# stack traces to leak to the client. These handlers intercept errors and wrap
+# them in a clean, consistent ErrorResponse schema.
+# -----------------------------------------------------------------------------
+@app.exception_handler(HTTPException)
+def http_exception_handler(request: Request, exc: HTTPException):
+    """
+    Standardizes HTTP exceptions (like 404 Not Found or 400 Bad Request).
+    """
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ErrorResponse(
+            error="HTTP Error",
+            detail=str(exc.detail),
+            status_code=exc.status_code,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        ).model_dump()
+    )
+
+
+@app.exception_handler(RequestValidationError)
+def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Standardizes schema validation errors (e.g. missing query in request body).
+    """
+    error_messages = []
+    for err in exc.errors():
+        field_path = " -> ".join(str(loc) for loc in err.get("loc", []))
+        error_messages.append(f"{field_path}: {err.get('msg', 'Invalid value')}")
+    formatted_detail = "; ".join(error_messages)
+
+    return JSONResponse(
+        status_code=422,
+        content=ErrorResponse(
+            error="Validation Error",
+            detail=formatted_detail,
+            status_code=422,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        ).model_dump()
+    )
+
+
+@app.exception_handler(Exception)
+def generic_exception_handler(request: Request, exc: Exception):
+    """
+    Safety net for unexpected internal errors (500 Internal Server Error).
+    """
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            error="Internal Server Error",
+            detail=f"An unexpected internal error occurred: {str(exc)}",
+            status_code=500,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        ).model_dump()
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -49,7 +115,7 @@ def health_check():
     return {
         "status": "ok",
         "service": "ResearchPilot",
-        "version": "0.11.0"
+        "version": "0.12.0"
     }
 
 
@@ -98,7 +164,8 @@ def start_research(request: ResearchRequest):
         "document_results": [],
         "evidence": [],
         "verified_evidence": [],
-        "report": ""
+        "report": "",
+        "errors": []
     }
 
     final_state = research_graph.invoke(initial_state)
@@ -129,6 +196,7 @@ def start_research(request: ResearchRequest):
         evidence=final_state["evidence"],
         verified_evidence=final_state["verified_evidence"],
         report=final_state.get("report", ""),
+        errors=final_state.get("errors", []),
         message=(
             f"Planner generated {num_questions} sub-questions. "
             f"Gathered {web_count} web sources and {doc_count} document passages in parallel, "
@@ -242,3 +310,28 @@ def flush_cache():
     """
     clear_cache()
     return {"status": "cleared", "message": "Cache successfully cleared."}
+
+
+# -----------------------------------------------------------------------------
+# Resilience & Fault Tolerance Endpoints (Phase 12)
+# -----------------------------------------------------------------------------
+@app.get("/resilience/circuit-breaker", response_model=CircuitBreakerStatsResponse, tags=["Resilience"])
+def view_circuit_breaker_status():
+    """
+    Returns current health state, failure metrics, and cooldown timer of the search circuit breaker.
+    """
+    return search_circuit_breaker.get_status()
+
+
+@app.post("/resilience/circuit-breaker/reset", tags=["Resilience"])
+def reset_circuit_breaker():
+    """
+    Manually resets the circuit breaker back to CLOSED state.
+    """
+    search_circuit_breaker.reset()
+    return {
+        "status": "reset",
+        "message": "Circuit breaker successfully reset to CLOSED state.",
+        "circuit_breaker": search_circuit_breaker.get_status()
+    }
+

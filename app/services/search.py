@@ -7,6 +7,7 @@ It requires NO API keys, making it completely free and easy to get started with.
 
 from ddgs import DDGS
 from app.services.cache import get_cache, set_cache
+from app.services.resilience import search_circuit_breaker, retry_with_backoff
 
 
 def search_web(query: str, max_results: int = 3) -> list[dict]:
@@ -29,18 +30,31 @@ def search_web(query: str, max_results: int = 3) -> list[dict]:
     if not clean_query:
         return []
 
-    # Check cache first (Phase 11)
+    # 1. Check cache first (Phase 11)
     cache_key = f"search:{clean_query}:{max_results}"
     cached_results = get_cache(cache_key)
     if cached_results is not None:
         print(f"[Search Service] Cache hit for: '{clean_query}' ({len(cached_results)} results)")
         return cached_results
 
+    # 2. Check Circuit Breaker (Phase 12)
+    # If the search service has failed repeatedly, fast-fail immediately without waiting!
+    if not search_circuit_breaker.can_execute():
+        print(f"[Search Service] Circuit breaker is OPEN. Fast-failing immediately to fallback results for: '{clean_query}'")
+        return _search_fallback(clean_query, max_results)
+
     print(f"[Search Service] Cache miss. Searching web for: '{clean_query}' (max results: {max_results})")
 
     try:
-        # DDGS().text() sends the search query to DuckDuckGo
-        raw_results = DDGS().text(clean_query, max_results=max_results)
+        # 3. Execute search with Exponential Backoff Retry (Phase 12)
+        # Transient network hiccups will automatically retry (0.2s, 0.4s) before giving up!
+        def _fetch():
+            return list(DDGS().text(clean_query, max_results=max_results))
+
+        raw_results = retry_with_backoff(_fetch, max_retries=2, initial_delay=0.2)
+
+        # Record healthy search execution in the circuit breaker
+        search_circuit_breaker.record_success()
 
         # Format raw results into clean, beginner-friendly dictionaries
         formatted_results = []
@@ -56,9 +70,9 @@ def search_web(query: str, max_results: int = 3) -> list[dict]:
         return formatted_results
 
     except Exception as error:
-        # If there is no internet connection or DuckDuckGo is unreachable,
-        # we log the error and use a fallback so our application never crashes!
-        print(f"[Search Service] Live search failed ({error}). Using fallback results.")
+        # If live search fails after retries, record the failure in circuit breaker
+        search_circuit_breaker.record_failure()
+        print(f"[Search Service] Live search failed after retries ({error}). Using fallback results.")
         return _search_fallback(clean_query, max_results)
 
 

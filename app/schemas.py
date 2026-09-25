@@ -86,6 +86,7 @@ class ResearchResponse(BaseModel):
     evidence: List[EvidenceItem] = Field(default_factory=list, description="Atomic claims and citations (from extractor)")
     verified_evidence: List[VerifiedEvidenceItem] = Field(default_factory=list, description="Audited claims with verdicts (from fact_checker)")
     report: str = Field(default="", description="Synthesized final Markdown research report with citations (from synthesizer)")
+    errors: List[dict] = Field(default_factory=list, description="Non-fatal warnings or service fallback notices (Phase 12)")
     message: str = Field(..., description="Human-readable explanation of current status")
 
 
@@ -176,3 +177,28 @@ class CacheStatsResponse(BaseModel):
     total_requests: int = Field(..., description="Total cache lookups")
     hit_ratio: float = Field(..., description="Ratio of hits to total requests (0.0 to 1.0)")
     total_keys: int = Field(..., description="Number of currently cached keys")
+
+
+# -----------------------------------------------------------------------------
+# Resilience & Fault Tolerance Models (Phase 12)
+# -----------------------------------------------------------------------------
+class CircuitBreakerStatsResponse(BaseModel):
+    """
+    Operational metrics and current health state of the search circuit breaker.
+    """
+    state: str = Field(..., description="Circuit breaker state: 'CLOSED', 'OPEN', or 'HALF-OPEN'", examples=["CLOSED"])
+    failure_count: int = Field(..., description="Consecutive failure count", examples=[0])
+    failure_threshold: int = Field(..., description="Threshold after which the circuit trips to OPEN", examples=[3])
+    cooldown_seconds: float = Field(..., description="Cooldown duration in seconds when OPEN", examples=[15.0])
+    seconds_until_probe: float = Field(..., description="Seconds remaining before attempting probe in HALF-OPEN", examples=[0.0])
+
+
+class ErrorResponse(BaseModel):
+    """
+    Standardized API error response schema for clean client-side error handling.
+    """
+    error: str = Field(..., description="Error category or short title", examples=["Not Found"])
+    detail: str = Field(..., description="Helpful human-readable explanation of the issue")
+    status_code: int = Field(..., description="HTTP status code", examples=[404])
+    timestamp: str = Field(..., description="ISO 8601 formatted timestamp when the error occurred")
+

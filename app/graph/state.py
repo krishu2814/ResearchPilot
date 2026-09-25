@@ -35,3 +35,6 @@ class ResearchState(TypedDict):
 
     # 7. Final synthesized research report in Markdown with citations (Phase 8)
     report: str
+
+    # 8. Captured non-fatal errors and warnings during node executions (Phase 12)
+    errors: List[dict]

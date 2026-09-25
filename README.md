@@ -83,8 +83,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | **Phase 9** | Lesson 9.1 | Session Memory & Database Persistence | ✅ Completed |
 | **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | ✅ Completed |
 | **Phase 11**| Lesson 11.1| Redis Caching for Search & State | ✅ Completed |
-| **Phase 12**| Lesson 12.1| Error Handling & Fault Tolerance | ⏳ Next Up |
-| **Phase 13**| Lesson 13.1| Automated Testing with pytest | 📋 Planned |
+| **Phase 12**| Lesson 12.1| Error Handling & Fault Tolerance | ✅ Completed |
+| **Phase 13**| Lesson 13.1| Automated Testing with pytest | ⏳ Next Up |
 | **Phase 14**| Lesson 14.1| Docker & docker-compose Deployment | 📋 Planned |
 | **Phase 15**| Lesson 15.1| Final Portfolio Presentation & Review | 📋 Planned |
 
@@ -348,4 +348,49 @@ curl "http://127.0.0.1:8000/documents/search?q=PostgreSQL+indexing&top_k=2"
   ]
 }
 ```
+
+---
+
+## 🛡️ Error Handling, Retry & Circuit Breaker (Phase 12)
+
+In Phase 12, we equipped ResearchPilot with industrial-grade resilience patterns, ensuring that external network blips or outages never crash the agent graph:
+
+### 1. Retry with Exponential Backoff (`app/services/resilience.py`)
+- Automatically retries transient network errors (such as socket resets or temporary rate limits) with escalating delays ($0.2\text{s} \to 0.4\text{s} \to 0.8\text{s}$).
+- Configurable via `max_retries`, `initial_delay`, and `backoff_factor`.
+
+### 2. Circuit Breaker Pattern (`CircuitBreaker`)
+Protects the web research agent from hammering failing upstream providers:
+* **CLOSED (Normal)**: All web search calls execute normally.
+* **OPEN (Tripped)**: After 3 consecutive network failures, the circuit trips to `OPEN`. For the 15-second cooldown window, calls fail fast immediately to local fallback summaries without waiting for network timeouts.
+* **HALF-OPEN (Probe)**: Once the 15-second cooldown expires, the breaker lets a single probe call pass through to test if DuckDuckGo has recovered. If successful, the circuit resets to `CLOSED`.
+
+### 3. Global Exception Handlers (`app/main.py`)
+Intercepts unhandled errors across the entire FastAPI app and formats them into a clean, uniform `ErrorResponse`:
+* `HTTPException` (e.g. 404 Not Found)
+* `RequestValidationError` (e.g. 422 Bad Request with formatted schema hints)
+* `Exception` (e.g. 500 Internal Server Error safety net)
+
+### 4. Monitoring & Admin Endpoints
+
+#### View Circuit Breaker Status:
+```bash
+curl http://127.0.0.1:8000/resilience/circuit-breaker
+```
+**Response:**
+```json
+{
+  "state": "CLOSED",
+  "failure_count": 0,
+  "failure_threshold": 3,
+  "cooldown_seconds": 15.0,
+  "seconds_until_probe": 0.0
+}
+```
+
+#### Manually Reset Circuit Breaker:
+```bash
+curl -X POST http://127.0.0.1:8000/resilience/circuit-breaker/reset
+```
+
 
