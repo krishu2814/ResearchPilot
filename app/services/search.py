@@ -6,6 +6,7 @@ It requires NO API keys, making it completely free and easy to get started with.
 """
 
 from ddgs import DDGS
+from app.services.cache import get_cache, set_cache
 
 
 def search_web(query: str, max_results: int = 3) -> list[dict]:
@@ -28,7 +29,14 @@ def search_web(query: str, max_results: int = 3) -> list[dict]:
     if not clean_query:
         return []
 
-    print(f"[Search Service] Searching web for: '{clean_query}' (max results: {max_results})")
+    # Check cache first (Phase 11)
+    cache_key = f"search:{clean_query}:{max_results}"
+    cached_results = get_cache(cache_key)
+    if cached_results is not None:
+        print(f"[Search Service] Cache hit for: '{clean_query}' ({len(cached_results)} results)")
+        return cached_results
+
+    print(f"[Search Service] Cache miss. Searching web for: '{clean_query}' (max results: {max_results})")
 
     try:
         # DDGS().text() sends the search query to DuckDuckGo
@@ -43,6 +51,8 @@ def search_web(query: str, max_results: int = 3) -> list[dict]:
                 "snippet": item.get("body", "")
             })
 
+        # Save to cache for 1 hour (3600 seconds)
+        set_cache(cache_key, formatted_results, ttl_seconds=3600)
         return formatted_results
 
     except Exception as error:

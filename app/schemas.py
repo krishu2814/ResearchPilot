@@ -161,3 +161,18 @@ class DocumentSearchResponse(BaseModel):
     query: str
     total_matches: int
     results: List[DocumentSearchResultItem]
+
+
+# -----------------------------------------------------------------------------
+# Cache Monitoring Models (Phase 11)
+# -----------------------------------------------------------------------------
+class CacheStatsResponse(BaseModel):
+    """
+    Performance and operational metrics for the caching layer.
+    """
+    backend: str = Field(..., description="Active cache backend: 'redis' or 'memory'")
+    hits: int = Field(..., description="Total cache hits")
+    misses: int = Field(..., description="Total cache misses")
+    total_requests: int = Field(..., description="Total cache lookups")
+    hit_ratio: float = Field(..., description="Ratio of hits to total requests (0.0 to 1.0)")
+    total_keys: int = Field(..., description="Number of currently cached keys")

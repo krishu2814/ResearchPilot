@@ -9,3 +9,6 @@ langchain-core>=0.3.0
 
 # Web Search (Phase 3)
 ddgs>=9.0.0
+
+# Caching Layer (Phase 11)
+redis>=5.0.0

@@ -11,7 +11,8 @@ from app.schemas import (
     DocumentUploadResponse,
     DocumentListItem,
     DocumentSearchResponse,
-    DocumentSearchResultItem
+    DocumentSearchResultItem,
+    CacheStatsResponse
 )
 from app.graph.research_graph import research_graph
 from app.services.documents import save_document, get_all_documents
@@ -24,6 +25,7 @@ from app.services.session_store import (
     delete_session
 )
 from app.services.streaming import stream_research_progress
+from app.services.cache import get_cache_stats, clear_cache
 
 # 1. Initialize SQLite session database
 init_db()
@@ -31,8 +33,8 @@ init_db()
 # 2. Create FastAPI instance
 app = FastAPI(
     title="ResearchPilot API",
-    description="Agentic Research & RAG Platform - Phase 10 SSE Progress Streaming",
-    version="0.10.0",
+    description="Agentic Research & RAG Platform - Phase 11 Redis Caching Layer",
+    version="0.11.0",
 )
 
 
@@ -47,7 +49,7 @@ def health_check():
     return {
         "status": "ok",
         "service": "ResearchPilot",
-        "version": "0.10.0"
+        "version": "0.11.0"
     }
 
 
@@ -220,3 +222,23 @@ def search_vector_store(
         total_matches=len(matches),
         results=[DocumentSearchResultItem(**item) for item in matches]
     )
+
+
+# -----------------------------------------------------------------------------
+# Caching Endpoints (Phase 11)
+# -----------------------------------------------------------------------------
+@app.get("/cache/stats", response_model=CacheStatsResponse, tags=["Caching"])
+def view_cache_stats():
+    """
+    Returns performance metrics for the caching layer (hits, misses, active backend, and total keys).
+    """
+    return get_cache_stats()
+
+
+@app.post("/cache/clear", tags=["Caching"])
+def flush_cache():
+    """
+    Clears all cached web search queries and stored key-value pairs.
+    """
+    clear_cache()
+    return {"status": "cleared", "message": "Cache successfully cleared."}
