@@ -1,6 +1,7 @@
 import uuid
 from typing import List
 from fastapi import FastAPI, Query, HTTPException
+from fastapi.responses import StreamingResponse
 from app.schemas import (
     ResearchRequest,
     ResearchResponse,
@@ -22,6 +23,7 @@ from app.services.session_store import (
     list_sessions,
     delete_session
 )
+from app.services.streaming import stream_research_progress
 
 # 1. Initialize SQLite session database
 init_db()
@@ -29,8 +31,8 @@ init_db()
 # 2. Create FastAPI instance
 app = FastAPI(
     title="ResearchPilot API",
-    description="Agentic Research & RAG Platform - Phase 9 Session Persistence Pipeline",
-    version="0.9.0",
+    description="Agentic Research & RAG Platform - Phase 10 SSE Progress Streaming",
+    version="0.10.0",
 )
 
 
@@ -45,13 +47,34 @@ def health_check():
     return {
         "status": "ok",
         "service": "ResearchPilot",
-        "version": "0.9.0"
+        "version": "0.10.0"
     }
 
 
 # -----------------------------------------------------------------------------
-# Research Endpoints (LangGraph Parallel Workflow with Session Memory)
+# Research Endpoints (LangGraph Parallel Workflow with Streaming & Session Memory)
 # -----------------------------------------------------------------------------
+@app.get("/research/stream", tags=["Research"])
+def stream_research(
+    query: str = Query(..., description="The research question or topic", examples=["Compare PostgreSQL and MongoDB"]),
+    session_id: str = Query(None, description="Optional custom session ID; auto-generated if omitted")
+):
+    """
+    Streams multi-agent research progress in real-time via Server-Sent Events (SSE).
+    Yields events for each agent node (planner, web_researcher, doc_retriever,
+    extractor, fact_checker, synthesizer) and persists final results to SQLite.
+    """
+    return StreamingResponse(
+        stream_research_progress(query=query, session_id=session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @app.post("/research", response_model=ResearchResponse, tags=["Research"])
 def start_research(request: ResearchRequest):
     """

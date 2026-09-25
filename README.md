@@ -81,8 +81,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | ✅ Completed |
 | **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | ✅ Completed |
 | **Phase 9** | Lesson 9.1 | Session Memory & Database Persistence | ✅ Completed |
-| **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | ⏳ Next Up |
-| **Phase 11**| Lesson 11.1| Redis Caching for Search & State | 📋 Planned |
+| **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | ✅ Completed |
+| **Phase 11**| Lesson 11.1| Redis Caching for Search & State | ⏳ Next Up |
 | **Phase 12**| Lesson 12.1| Error Handling & Fault Tolerance | 📋 Planned |
 | **Phase 13**| Lesson 13.1| Automated Testing with pytest | 📋 Planned |
 | **Phase 14**| Lesson 14.1| Docker & docker-compose Deployment | 📋 Planned |
