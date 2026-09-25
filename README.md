@@ -80,8 +80,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | ✅ Completed |
 | **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | ✅ Completed |
 | **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | ✅ Completed |
-| **Phase 9** | Lesson 9.1 | PostgreSQL Session Memory & Persistence | ⏳ Next Up |
-| **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | 📋 Planned |
+| **Phase 9** | Lesson 9.1 | Session Memory & Database Persistence | ✅ Completed |
+| **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | ⏳ Next Up |
 | **Phase 11**| Lesson 11.1| Redis Caching for Search & State | 📋 Planned |
 | **Phase 12**| Lesson 12.1| Error Handling & Fault Tolerance | 📋 Planned |
 | **Phase 13**| Lesson 13.1| Automated Testing with pytest | 📋 Planned |
@@ -135,7 +135,7 @@ curl http://127.0.0.1:8000/health
 {
   "status": "ok",
   "service": "ResearchPilot",
-  "version": "0.8.0"
+  "version": "0.9.0"
 }
 ```
 
@@ -144,7 +144,7 @@ curl http://127.0.0.1:8000/health
 ### 2. Multi-Agent Research (`POST /research`)
 * **Method**: `POST`
 * **Path**: `/research`
-* **Description**: Runs the complete multi-agent LangGraph research workflow (`START -> planner -> [web_researcher + doc_retriever] -> extractor -> fact_checker -> synthesizer -> END`). The Planner decomposes the topic into sub-questions, the Web Researcher and Document Retriever execute concurrently to gather evidence from the live web and uploaded documents, the Extractor distills sources into atomic factual claims with citations, the Fact Checker audits each claim for truthfulness, and the Synthesizer compiles verified findings into a publication-ready Markdown report.
+* **Description**: Runs the complete multi-agent LangGraph research workflow (`START -> planner -> [web_researcher + doc_retriever] -> extractor -> fact_checker -> synthesizer -> END`). The Planner decomposes the topic into sub-questions, the Web Researcher and Document Retriever execute concurrently to gather evidence from the live web and uploaded documents, the Extractor distills sources into atomic factual claims with citations, the Fact Checker audits each claim for truthfulness, the Synthesizer compiles verified findings into a publication-ready Markdown report, and the complete session is persisted to SQLite.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/research \
@@ -155,6 +155,7 @@ curl -X POST http://127.0.0.1:8000/research \
 **Response:**
 ```json
 {
+  "session_id": "sess_46df5580",
   "status": "researched",
   "query": "Compare PostgreSQL and MongoDB",
   "sub_questions": [
@@ -165,22 +166,27 @@ curl -X POST http://127.0.0.1:8000/research \
   "search_results": [ ... ],
   "document_results": [ ... ],
   "evidence": [ ... ],
-  "verified_evidence": [
-    {
-      "claim": "PostgreSQL is an advanced ACID-compliant relational database that excels at complex queries.",
-      "source_type": "document",
-      "source_title": "PostgreSQL vs MongoDB Internal Guide",
-      "source_url_or_id": "doc_b9b90229",
-      "sub_question": "What are the core architecture and design differences in Compare PostgreSQL and MongoDB?",
-      "verdict": "verified",
-      "confidence": 0.99,
-      "rationale": "Claim is directly supported by cited document source 'PostgreSQL vs MongoDB Internal Guide'."
-    }
-  ],
+  "verified_evidence": [ ... ],
   "report": "# 📑 Research Report: Compare PostgreSQL and MongoDB\n\n## 1. Executive Summary\n...",
-  "message": "Planner generated 3 sub-questions. Gathered 4 web sources and 3 document passages in parallel, extracting 7 claims, verifying 7 facts, and synthesizing a 4250-character research report with citations."
+  "message": "Planner generated 3 sub-questions. Gathered 4 web sources and 3 document passages in parallel, extracting 7 claims, verifying 7 facts, synthesizing a 4250-character report, and saving session 'sess_46df5580' to database."
 }
 ```
+
+---
+
+### 3. Session Persistence Endpoints (`/sessions`)
+* **List Past Sessions**: `GET /sessions`
+  ```bash
+  curl http://127.0.0.1:8000/sessions
+  ```
+* **Retrieve Session Details & Report**: `GET /sessions/{session_id}`
+  ```bash
+  curl http://127.0.0.1:8000/sessions/sess_46df5580
+  ```
+* **Delete Session**: `DELETE /sessions/{session_id}`
+  ```bash
+  curl -X DELETE http://127.0.0.1:8000/sessions/sess_46df5580
+  ```
 
 ---
 

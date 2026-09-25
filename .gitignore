@@ -32,3 +32,7 @@ htmlcov/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Local Databases & Storage
+data/
+*.db

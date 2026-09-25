@@ -1,8 +1,11 @@
+import uuid
 from typing import List
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from app.schemas import (
     ResearchRequest,
     ResearchResponse,
+    SessionSummaryItem,
+    SessionDetailResponse,
     DocumentUploadRequest,
     DocumentUploadResponse,
     DocumentListItem,
@@ -12,12 +15,22 @@ from app.schemas import (
 from app.graph.research_graph import research_graph
 from app.services.documents import save_document, get_all_documents
 from app.services.rag import index_document_chunks, search_documents, get_index_stats
+from app.services.session_store import (
+    init_db,
+    save_session,
+    get_session,
+    list_sessions,
+    delete_session
+)
 
-# 1. Create FastAPI instance
+# 1. Initialize SQLite session database
+init_db()
+
+# 2. Create FastAPI instance
 app = FastAPI(
     title="ResearchPilot API",
-    description="Agentic Research & RAG Platform - Phase 8 Report Synthesis Pipeline",
-    version="0.8.0",
+    description="Agentic Research & RAG Platform - Phase 9 Session Persistence Pipeline",
+    version="0.9.0",
 )
 
 
@@ -32,12 +45,12 @@ def health_check():
     return {
         "status": "ok",
         "service": "ResearchPilot",
-        "version": "0.8.0"
+        "version": "0.9.0"
     }
 
 
 # -----------------------------------------------------------------------------
-# Research Endpoints (LangGraph Parallel Report Synthesis Workflow)
+# Research Endpoints (LangGraph Parallel Workflow with Session Memory)
 # -----------------------------------------------------------------------------
 @app.post("/research", response_model=ResearchResponse, tags=["Research"])
 def start_research(request: ResearchRequest):
@@ -48,8 +61,12 @@ def start_research(request: ResearchRequest):
     3. Extractor distills sources into atomic claims with source citations
     4. Fact Checker audits claims against source material and assigns verdicts
     5. Synthesizer compiles verified findings into a structured Markdown report
+    6. Session Store persists the complete state and report to SQLite database
     """
+    session_id = request.session_id or f"sess_{uuid.uuid4().hex[:8]}"
+
     initial_state = {
+        "session_id": session_id,
         "question": request.query,
         "sub_questions": [],
         "search_results": [],
@@ -61,6 +78,14 @@ def start_research(request: ResearchRequest):
 
     final_state = research_graph.invoke(initial_state)
 
+    # Persist the finished session and graph state to SQLite
+    save_session(
+        session_id=session_id,
+        query=request.query,
+        state=final_state,
+        status="researched"
+    )
+
     num_questions = len(final_state.get("sub_questions", []))
     web_count = len(final_state.get("search_results", []))
     doc_count = len(final_state.get("document_results", []))
@@ -70,6 +95,7 @@ def start_research(request: ResearchRequest):
     report_length = len(final_state.get("report", ""))
 
     return ResearchResponse(
+        session_id=session_id,
         status="researched",
         query=final_state["question"],
         sub_questions=final_state["sub_questions"],
@@ -82,9 +108,42 @@ def start_research(request: ResearchRequest):
             f"Planner generated {num_questions} sub-questions. "
             f"Gathered {web_count} web sources and {doc_count} document passages in parallel, "
             f"extracting {evidence_count} claims, verifying {verified_count} facts, "
-            f"and synthesizing a {report_length}-character research report with citations."
+            f"synthesizing a {report_length}-character report, and saving session '{session_id}' to database."
         )
     )
+
+
+# -----------------------------------------------------------------------------
+# Session & Persistence Endpoints (Phase 9)
+# -----------------------------------------------------------------------------
+@app.get("/sessions", response_model=List[SessionSummaryItem], tags=["Sessions & Persistence"])
+def list_research_sessions(limit: int = Query(50, description="Max number of sessions to return", ge=1, le=100)):
+    """
+    Returns a list of all past research sessions stored in the SQLite database.
+    """
+    return list_sessions(limit=limit)
+
+
+@app.get("/sessions/{session_id}", response_model=SessionDetailResponse, tags=["Sessions & Persistence"])
+def get_research_session(session_id: str):
+    """
+    Retrieves the complete state and synthesized report for a specific research session.
+    """
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Research session '{session_id}' not found.")
+    return session
+
+
+@app.delete("/sessions/{session_id}", tags=["Sessions & Persistence"])
+def delete_research_session(session_id: str):
+    """
+    Permanently deletes a stored research session.
+    """
+    success = delete_session(session_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Research session '{session_id}' not found.")
+    return {"status": "deleted", "session_id": session_id, "message": f"Session '{session_id}' successfully removed."}
 
 
 # -----------------------------------------------------------------------------

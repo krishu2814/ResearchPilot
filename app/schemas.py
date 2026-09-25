@@ -1,5 +1,5 @@
+from typing import List, Optional
 from pydantic import BaseModel, Field
-from typing import List
 
 
 # -----------------------------------------------------------------------------
@@ -53,7 +53,7 @@ class VerifiedEvidenceItem(BaseModel):
 
 
 # -----------------------------------------------------------------------------
-# Research Workflow Models (Phase 7 Fact Checking Pipeline)
+# Research Workflow Models (Phase 9 Persistent Pipeline)
 # -----------------------------------------------------------------------------
 class ResearchRequest(BaseModel):
     """
@@ -64,13 +64,20 @@ class ResearchRequest(BaseModel):
         description="The research question or topic",
         examples=["Compare PostgreSQL, MongoDB and DynamoDB for an e-commerce backend"]
     )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Optional session identifier; if not provided, a unique ID is auto-generated",
+        examples=["sess_ecommerce_db"]
+    )
 
 
 class ResearchResponse(BaseModel):
     """
     Data returned to the user after running the research workflow.
-    Includes sub-questions, raw sources, document passages, extracted claims, and verified facts!
+    Includes persistent session_id, sub-questions, raw sources, document passages,
+    extracted claims, verified facts, and the synthesized Markdown report!
     """
+    session_id: str = Field(..., description="Unique persistent session ID for this research run")
     status: str = Field(..., description="Current status of the research workflow", examples=["researched"])
     query: str = Field(..., description="Echoes back the research query received")
     sub_questions: List[str] = Field(default_factory=list, description="Sub-questions produced by Planner")
@@ -80,6 +87,39 @@ class ResearchResponse(BaseModel):
     verified_evidence: List[VerifiedEvidenceItem] = Field(default_factory=list, description="Audited claims with verdicts (from fact_checker)")
     report: str = Field(default="", description="Synthesized final Markdown research report with citations (from synthesizer)")
     message: str = Field(..., description="Human-readable explanation of current status")
+
+
+# -----------------------------------------------------------------------------
+# Session Persistence Models (Phase 9)
+# -----------------------------------------------------------------------------
+class SessionSummaryItem(BaseModel):
+    """
+    Lightweight summary representation of a stored research session.
+    """
+    session_id: str = Field(..., description="Unique session ID")
+    query: str = Field(..., description="Original research query")
+    status: str = Field(..., description="Status of the research session")
+    created_at: str = Field(..., description="ISO 8601 timestamp when session was executed")
+    num_sub_questions: int = Field(..., description="Number of sub-questions generated")
+    num_sources: int = Field(..., description="Total web and document sources consulted")
+    num_verified_claims: int = Field(..., description="Number of verified factual claims extracted")
+    report_length: int = Field(..., description="Character count of the synthesized Markdown report")
+
+
+class SessionDetailResponse(BaseModel):
+    """
+    Full research session record including complete graph state and synthesized report.
+    """
+    session_id: str
+    query: str
+    status: str
+    created_at: str
+    sub_questions: List[str] = Field(default_factory=list)
+    search_results: List[SearchResultItem] = Field(default_factory=list)
+    document_results: List[DocumentSearchResultItem] = Field(default_factory=list)
+    evidence: List[EvidenceItem] = Field(default_factory=list)
+    verified_evidence: List[VerifiedEvidenceItem] = Field(default_factory=list)
+    report: str = Field(default="")
 
 
 # -----------------------------------------------------------------------------
