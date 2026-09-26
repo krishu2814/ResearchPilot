@@ -19,7 +19,7 @@ def document_retriever_node(state: ResearchState) -> dict:
 
     print(f"\n[Doc Retriever Node] Searching uploaded documents for {len(sub_questions)} sub-questions...")
 
-    for i, sub_q in enumerate(sub_questions, 1):
+    for sub_q in sub_questions:
         # Search vector store for this specific sub-question (top 2 passages per question)
         matches = search_documents(query=sub_q, top_k=2)
 

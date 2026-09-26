@@ -60,9 +60,9 @@ def search_web(query: str, max_results: int = 3) -> list[dict]:
         formatted_results = []
         for item in raw_results:
             formatted_results.append({
-                "title": item.get("title", "No title"),
-                "url": item.get("href", ""),
-                "snippet": item.get("body", "")
+                "title": item.get("title") or "No title",
+                "url": item.get("href") or "",
+                "snippet": item.get("body") or ""
             })
 
         # Save to cache for 1 hour (3600 seconds)

@@ -12,3 +12,6 @@ ddgs>=9.0.0
 
 # Caching Layer (Phase 11)
 redis>=5.0.0
+
+# Testing (Phase 13)
+pytest>=8.0.0

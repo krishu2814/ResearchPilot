@@ -108,6 +108,14 @@ def _split_into_meaningful_sentences(text: str) -> List[str]:
                 clean += "."
             clean_sentences.append(clean)
 
+    # Fallback: if strict criteria matched nothing but text is meaningful, retain stripped text
+    if not clean_sentences and text.strip():
+        fallback_clean = text.strip()
+        if len(fallback_clean.split()) >= 3:
+            if not fallback_clean.endswith((".", "!", "?")):
+                fallback_clean += "."
+            clean_sentences.append(fallback_clean)
+
     return clean_sentences
 
 

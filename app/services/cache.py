@@ -72,7 +72,6 @@ def get_cache(key: str) -> Optional[Any]:
     Retrieves a cached value by key. Returns None if the key does not exist
     or has expired.
     """
-    global _cache_stats
     backend = get_cache_backend()
 
     # Case A: Redis Backend
@@ -134,7 +133,6 @@ def clear_cache() -> None:
     """
     Flushes all keys from the active cache backend.
     """
-    global _memory_cache, _cache_stats
     backend = get_cache_backend()
 
     if backend == "redis" and _redis_client:

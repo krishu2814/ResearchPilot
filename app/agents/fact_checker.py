@@ -204,7 +204,7 @@ def _verify_with_llm(evidence_list: List[Dict], api_key: str) -> List[Dict]:
     parsed = json.loads(content)
     if isinstance(parsed, list) and len(parsed) == len(evidence_list):
         output = []
-        for orig, audit in zip(evidence_list, parsed):
+        for orig, audit in zip(evidence_list, parsed, strict=True):
             item = dict(orig)
             item["verdict"] = audit.get("verdict", "verified")
             item["confidence"] = float(audit.get("confidence", 0.9))

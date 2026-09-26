@@ -31,9 +31,9 @@ def researcher_node(state: ResearchState) -> dict:
             # We tag each result with the sub_question it helps answer
             collected_results.append({
                 "sub_question": sub_q,
-                "title": item.get("title", ""),
-                "url": item.get("url", ""),
-                "snippet": item.get("snippet", "")
+                "title": item.get("title") or "",
+                "url": item.get("url") or "",
+                "snippet": item.get("snippet") or ""
             })
 
     print(f"[Researcher Node] Completed research. Total sources gathered: {len(collected_results)}\n")

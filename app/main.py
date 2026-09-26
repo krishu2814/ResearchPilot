@@ -107,6 +107,20 @@ def generic_exception_handler(request: Request, exc: Exception):
 # -----------------------------------------------------------------------------
 # System Endpoints
 # -----------------------------------------------------------------------------
+@app.get("/", tags=["System"])
+def root():
+    """
+    Returns service metadata and helpful API links.
+    """
+    return {
+        "service": "ResearchPilot",
+        "description": "Agentic Research & RAG Platform",
+        "version": "0.12.0",
+        "docs_url": "/docs",
+        "health_url": "/health"
+    }
+
+
 @app.get("/health", tags=["System"])
 def health_check():
     """
@@ -132,8 +146,12 @@ def stream_research(
     Yields events for each agent node (planner, web_researcher, doc_retriever,
     extractor, fact_checker, synthesizer) and persists final results to SQLite.
     """
+    clean_query = query.strip()
+    if not clean_query:
+        raise HTTPException(status_code=400, detail="Research query cannot be empty.")
+
     return StreamingResponse(
-        stream_research_progress(query=query, session_id=session_id),
+        stream_research_progress(query=clean_query, session_id=session_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -154,11 +172,15 @@ def start_research(request: ResearchRequest):
     5. Synthesizer compiles verified findings into a structured Markdown report
     6. Session Store persists the complete state and report to SQLite database
     """
+    clean_query = request.query.strip()
+    if not clean_query:
+        raise HTTPException(status_code=400, detail="Research query cannot be empty.")
+
     session_id = request.session_id or f"sess_{uuid.uuid4().hex[:8]}"
 
     initial_state = {
         "session_id": session_id,
-        "question": request.query,
+        "question": clean_query,
         "sub_questions": [],
         "search_results": [],
         "document_results": [],
@@ -189,12 +211,12 @@ def start_research(request: ResearchRequest):
     return ResearchResponse(
         session_id=session_id,
         status="researched",
-        query=final_state["question"],
-        sub_questions=final_state["sub_questions"],
-        search_results=final_state["search_results"],
-        document_results=final_state["document_results"],
-        evidence=final_state["evidence"],
-        verified_evidence=final_state["verified_evidence"],
+        query=final_state.get("question", request.query),
+        sub_questions=final_state.get("sub_questions", []),
+        search_results=final_state.get("search_results", []),
+        document_results=final_state.get("document_results", []),
+        evidence=final_state.get("evidence", []),
+        verified_evidence=final_state.get("verified_evidence", []),
         report=final_state.get("report", ""),
         errors=final_state.get("errors", []),
         message=(
@@ -248,8 +270,15 @@ def upload_document(request: DocumentUploadRequest):
     Uploads a text document, splits it into overlapping chunks,
     computes vector embeddings, and stores them in the vector index.
     """
+    clean_title = request.title.strip()
+    clean_content = request.content.strip()
+    if not clean_title:
+        raise HTTPException(status_code=400, detail="Document title cannot be empty.")
+    if not clean_content:
+        raise HTTPException(status_code=400, detail="Document content cannot be empty.")
+
     # Step 1: Save document and split into chunks
-    doc_record = save_document(title=request.title, content=request.content)
+    doc_record = save_document(title=clean_title, content=clean_content)
 
     # Step 2: Compute embeddings and index into the vector store
     indexed_chunks = index_document_chunks(
@@ -283,13 +312,25 @@ def search_vector_store(
     """
     Searches indexed document chunks using cosine similarity vector search.
     """
-    matches = search_documents(query=q, top_k=top_k)
+    clean_q = q.strip()
+    if not clean_q:
+        raise HTTPException(status_code=400, detail="Search query cannot be empty.")
+
+    matches = search_documents(query=clean_q, top_k=top_k)
 
     return DocumentSearchResponse(
         query=q,
         total_matches=len(matches),
         results=[DocumentSearchResultItem(**item) for item in matches]
     )
+
+
+@app.get("/documents/stats", tags=["Documents & RAG"])
+def view_document_index_stats():
+    """
+    Returns statistics about the vector store index (total chunks, unique documents).
+    """
+    return get_index_stats()
 
 
 # -----------------------------------------------------------------------------

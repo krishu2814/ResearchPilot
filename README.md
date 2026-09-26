@@ -84,8 +84,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | ✅ Completed |
 | **Phase 11**| Lesson 11.1| Redis Caching for Search & State | ✅ Completed |
 | **Phase 12**| Lesson 12.1| Error Handling & Fault Tolerance | ✅ Completed |
-| **Phase 13**| Lesson 13.1| Automated Testing with pytest | ⏳ Next Up |
-| **Phase 14**| Lesson 14.1| Docker & docker-compose Deployment | 📋 Planned |
+| **Phase 13**| Lesson 13.1| Automated Testing with pytest | ✅ Completed |
+| **Phase 14**| Lesson 14.1| Docker & docker-compose Deployment | ⏳ Next Up |
 | **Phase 15**| Lesson 15.1| Final Portfolio Presentation & Review | 📋 Planned |
 
 ---

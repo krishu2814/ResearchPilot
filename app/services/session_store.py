@@ -28,7 +28,9 @@ def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     Creates and returns a connection to the SQLite database.
     Configures sqlite3.Row so we can access columns by name like a dictionary.
     """
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
@@ -146,12 +148,12 @@ def get_session(session_id: str, db_path: str = DEFAULT_DB_PATH) -> Optional[Dic
         "query": row["query"],
         "status": row["status"],
         "created_at": row["created_at"],
-        "sub_questions": json.loads(row["sub_questions_json"]),
-        "search_results": json.loads(row["search_results_json"]),
-        "document_results": json.loads(row["document_results_json"]),
-        "evidence": json.loads(row["evidence_json"]),
-        "verified_evidence": json.loads(row["verified_evidence_json"]),
-        "report": row["report"]
+        "sub_questions": json.loads(row["sub_questions_json"] or "[]"),
+        "search_results": json.loads(row["search_results_json"] or "[]"),
+        "document_results": json.loads(row["document_results_json"] or "[]"),
+        "evidence": json.loads(row["evidence_json"] or "[]"),
+        "verified_evidence": json.loads(row["verified_evidence_json"] or "[]"),
+        "report": row["report"] or ""
     }
 
 
@@ -189,10 +191,10 @@ def list_sessions(limit: int = 50, db_path: str = DEFAULT_DB_PATH) -> List[Dict[
 
     sessions = []
     for row in rows:
-        sub_questions = json.loads(row["sub_questions_json"])
-        search_results = json.loads(row["search_results_json"])
-        document_results = json.loads(row["document_results_json"])
-        verified_evidence = json.loads(row["verified_evidence_json"])
+        sub_questions = json.loads(row["sub_questions_json"] or "[]")
+        search_results = json.loads(row["search_results_json"] or "[]")
+        document_results = json.loads(row["document_results_json"] or "[]")
+        verified_evidence = json.loads(row["verified_evidence_json"] or "[]")
 
         sessions.append({
             "session_id": row["session_id"],
@@ -202,7 +204,7 @@ def list_sessions(limit: int = 50, db_path: str = DEFAULT_DB_PATH) -> List[Dict[
             "num_sub_questions": len(sub_questions),
             "num_sources": len(search_results) + len(document_results),
             "num_verified_claims": len(verified_evidence),
-            "report_length": row["report_length"]
+            "report_length": row["report_length"] or 0
         })
 
     return sessions

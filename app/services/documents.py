@@ -38,6 +38,11 @@ def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> List[str]
     if not cleaned_text:
         return []
 
+    if chunk_size <= 0:
+        chunk_size = 300
+    if overlap < 0 or overlap >= chunk_size:
+        overlap = 0
+
     # If the text is already smaller than the chunk size, return it as a single chunk
     if len(cleaned_text) <= chunk_size:
         return [cleaned_text]

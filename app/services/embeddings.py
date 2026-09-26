@@ -34,7 +34,7 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
     if not vec_a or not vec_b or len(vec_a) != len(vec_b):
         return 0.0
 
-    dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
+    dot_product = sum(a * b for a, b in zip(vec_a, vec_b, strict=True))
     mag_a = math.sqrt(sum(a * a for a in vec_a))
     mag_b = math.sqrt(sum(b * b for b in vec_b))
 
