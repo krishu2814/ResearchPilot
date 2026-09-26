@@ -1,0 +1,66 @@
+# =============================================================================
+# ResearchPilot — Multi-Container Compose Stack (Phase 14)
+# =============================================================================
+# Services:
+# 1. web:   FastAPI agentic research engine with LangGraph & SQLite persistence
+# 2. redis: In-memory cache layer for search queries & rapid state retrieval
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. ResearchPilot Web Application
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: researchpilot-web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - PORT=8000
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+    volumes:
+      # Persistent volume for SQLite research sessions
+      - ./data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - researchpilot-net
+
+  # ---------------------------------------------------------------------------
+  # 2. Redis Caching Service
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: researchpilot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      # Persistent volume for Redis snapshots
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - researchpilot-net
+
+# -----------------------------------------------------------------------------
+# Networks & Persistent Volumes
+# -----------------------------------------------------------------------------
+networks:
+  researchpilot-net:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local

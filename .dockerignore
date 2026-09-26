@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets & Environment Files
+.env
+.env.local
+.env.*.local
+
+# Editor & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.DS_Store?
+._*
+
+# Local Database Files (use Docker volumes instead)
+data/*.db
+data/*.sqlite3
+
+# Documentation & Tests (optional in lean prod build)
+tests/

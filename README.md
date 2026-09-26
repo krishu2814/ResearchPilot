@@ -16,6 +16,8 @@
 - [Local Setup Guide](#-local-setup-guide)
 - [API Documentation & Examples](#-api-documentation--examples)
 - [LangGraph Workflow Details](#-langgraph-workflow-details)
+- [Automated Testing with pytest (Phase 13)](#-automated-testing-with-pytest-phase-13)
+- [Docker & Production Deployment (Phase 14)](#-docker--production-deployment-phase-14)
 
 ---
 
@@ -85,8 +87,8 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 | **Phase 11**| Lesson 11.1| Redis Caching for Search & State | ✅ Completed |
 | **Phase 12**| Lesson 12.1| Error Handling & Fault Tolerance | ✅ Completed |
 | **Phase 13**| Lesson 13.1| Automated Testing with pytest | ✅ Completed |
-| **Phase 14**| Lesson 14.1| Docker & docker-compose Deployment | ⏳ Next Up |
-| **Phase 15**| Lesson 15.1| Final Portfolio Presentation & Review | 📋 Planned |
+| **Phase 14**| Lesson 14.1| Docker & docker-compose Deployment | ✅ Completed |
+| **Phase 15**| Lesson 15.1| Final Portfolio Presentation & Review | ⏳ Next Up |
 
 ---
 
@@ -391,6 +393,90 @@ curl http://127.0.0.1:8000/resilience/circuit-breaker
 #### Manually Reset Circuit Breaker:
 ```bash
 curl -X POST http://127.0.0.1:8000/resilience/circuit-breaker/reset
+```
+
+---
+
+## 🧪 Automated Testing with pytest (Phase 13)
+
+ResearchPilot includes a comprehensive automated test suite covering multi-agent nodes, API routing, and backend services.
+
+### Running Tests:
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run specific test suites
+pytest tests/test_agents.py
+pytest tests/test_services.py
+pytest tests/test_api.py
+```
+
+### Test Coverage Highlights:
+- **Agent Nodes (`tests/test_agents.py`)**: Sub-question generation, sentence splitting, evidence distillation, fact-checking verdicts, and structured Markdown report synthesis.
+- **Backend Services (`tests/test_services.py`)**: Overlapping text chunking edge-cases, vector embeddings & cosine similarity, dual-backend TTL caching, circuit breaker state machine, and SQLite session persistence.
+- **API Endpoints (`tests/test_api.py`)**: Root metadata (`GET /`), health checks (`GET /health`), cache control, RAG document lifecycle, and standardized error responses (`404` and `422`).
+
+---
+
+## 🐳 Docker & Production Deployment (Phase 14)
+
+ResearchPilot is fully containerized using Docker and Docker Compose for production-ready, one-command deployment.
+
+### Architecture in Docker:
+```text
+               User / Client
+                     │
+         Port 8000   ▼
+    ┌─────────────────────────────────┐
+    │   researchpilot-web (FastAPI)   │
+    │   - Python 3.12-slim base       │
+    │   - Non-root user (appuser)     │
+    │   - Healthcheck (/health)       │
+    └────────────────┬────────────────┘
+                     │
+         Port 6379   ▼  (researchpilot-net)
+    ┌─────────────────────────────────┐
+    │   researchpilot-redis (Redis 7) │
+    │   - Alpine Linux base           │
+    │   - Persistent snapshot volume  │
+    └─────────────────────────────────┘
+```
+
+### 1. Build and Start the Stack:
+```bash
+# Launch FastAPI and Redis services in the background
+docker compose up -d --build
+```
+
+### 2. Verify Container Health:
+```bash
+docker compose ps
+```
+
+### 3. Check Live Logs:
+```bash
+docker compose logs -f web
+```
+
+### 4. Test the Containerized API:
+```bash
+# Check service health
+curl http://localhost:8000/health
+
+# Trigger an automated multi-agent research run
+curl -X POST http://localhost:8000/research \
+     -H "Content-Type: application/json" \
+     -d '{"query": "Compare DuckDuckGo and Google Search API for AI agents"}'
+```
+
+### 5. Stop the Containers:
+```bash
+# Stop containers while preserving database volume
+docker compose down
+
+# Stop and wipe persistent volumes (clean slate)
+docker compose down -v
 ```
 
 
