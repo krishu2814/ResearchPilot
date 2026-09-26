@@ -12,7 +12,7 @@
 ## 📖 Table of Contents
 - [Project Overview](#-project-overview)
 - [System Architecture](#-system-architecture)
-- [Learning Roadmap (Phases & Lessons)](#-learning-roadmap-phases--lessons)
+- [Project Roadmap](#-project-roadmap)
 - [Local Setup Guide](#-local-setup-guide)
 - [API Documentation & Examples](#-api-documentation--examples)
 - [LangGraph Workflow Details](#-langgraph-workflow-details)
@@ -64,31 +64,25 @@ Web Search (Tavily/Duck)  Document RAG (pgvector)
 
 ---
 
-## 📚 Learning Roadmap (Phases & Lessons)
+## 📚 Project Roadmap
 
-| Phase | Lesson | Topic | Status |
-| :--- | :--- | :--- | :---: |
-| **Phase 1** | Lesson 1.1 | Project Setup, Environment, and Health Endpoint | ✅ Completed |
-| | Lesson 1.2 | Basic Request/Response with Pydantic Schemas | ✅ Completed |
-| **Phase 2** | Lesson 2.1 | LangGraph Fundamentals: State, Nodes, and Edges | ✅ Completed |
-| | Lesson 2.2 | The Planner Node: Breaking questions into sub-questions | ✅ Completed |
-| | Lesson 2.3 | Building & Compiling `START -> planner -> END` Graph | ✅ Completed |
-| **Phase 3** | Lesson 3.1 | Web Search Tool: Integrating live search | ✅ Completed |
-| | Lesson 3.2 | Web Search Node in LangGraph | ✅ Completed |
-| **Phase 4** | Lesson 4.1 | Document Parsing & Text Chunking | ✅ Completed |
-| | Lesson 4.2 | Embeddings & Vector Storage (Cosine Similarity) | ✅ Completed |
-| | Lesson 4.3 | Document Retrieval Node & Ingestion API | ✅ Completed |
-| **Phase 5** | Lesson 5.1 | Parallel Graph Execution (Web + Documents) | ✅ Completed |
-| **Phase 6** | Lesson 6.1 | Evidence Schema & Information Extraction | ✅ Completed |
-| **Phase 7** | Lesson 7.1 | Fact Checker: Validating claims against sources | ✅ Completed |
-| **Phase 8** | Lesson 8.1 | Report Synthesis: Structured final document | ✅ Completed |
-| **Phase 9** | Lesson 9.1 | Session Memory & Database Persistence | ✅ Completed |
-| **Phase 10**| Lesson 10.1| Server-Sent Events (SSE) Progress Streaming | ✅ Completed |
-| **Phase 11**| Lesson 11.1| Redis Caching for Search & State | ✅ Completed |
-| **Phase 12**| Lesson 12.1| Error Handling & Fault Tolerance | ✅ Completed |
-| **Phase 13**| Lesson 13.1| Automated Testing with pytest | ✅ Completed |
-| **Phase 14**| Lesson 14.1| Docker & docker-compose Deployment | ✅ Completed |
-| **Phase 15**| Lesson 15.1| Final Portfolio Presentation & Review | ⏳ Next Up |
+| Phase | Description / Deliverable | Status |
+| :--- | :--- | :---: |
+| **Phase 1** | Project Setup, Environment, and Health Endpoint | ✅ Completed |
+| **Phase 2** | LangGraph Fundamentals: State, Nodes, Edges, and Planner Node | ✅ Completed |
+| **Phase 3** | Web Search Tool & Researcher Agent Node (Live DuckDuckGo) | ✅ Completed |
+| **Phase 4** | Document Parsing, Text Chunking, Cosine Vector Storage & Ingestion API | ✅ Completed |
+| **Phase 5** | Parallel Graph Execution (Concurrent Web + Document Retrieval) | ✅ Completed |
+| **Phase 6** | Evidence Schema & Atomic Information Extraction Agent | ✅ Completed |
+| **Phase 7** | Fact Checker Agent: Validating Claims & Verdicts Against Sources | ✅ Completed |
+| **Phase 8** | Report Synthesis: Structured Markdown Generation with Citations | ✅ Completed |
+| **Phase 9** | Session Memory & SQLite Database Persistence Layer | ✅ Completed |
+| **Phase 10** | Server-Sent Events (SSE) Real-Time Progress Streaming | ✅ Completed |
+| **Phase 11** | Dual-Backend TTL Caching (Redis with In-Memory Fallback) | ✅ Completed |
+| **Phase 12** | Error Handling, 3-State Circuit Breaker & Resilience Retries | ✅ Completed |
+| **Phase 13** | Automated Testing Suite with pytest (100% Pass Rate) | ✅ Completed |
+| **Phase 14** | Docker & docker-compose Multi-Service Production Deployment | ✅ Completed |
+| **Phase 15** | Final Production Architecture Review & Milestone Completion | ✅ Completed |
 
 ---
 
@@ -272,9 +266,9 @@ research_graph = workflow.compile()
 
 ---
 
-## 🔍 Web Search Service (Phase 3 — Lesson 3.1)
+## 🔍 Web Search Service (Phase 3)
 
-In Lesson 3.1, we built a standalone search tool in `app/services/search.py` using `ddgs` (DuckDuckGo Search). This gives our agent real-time access to the live web without requiring an API key.
+In Phase 3, we built a standalone search tool in `app/services/search.py` using `ddgs` (DuckDuckGo Search). This gives our agent real-time access to the live web without requiring an API key.
 
 ### Usage Example:
 ```python
